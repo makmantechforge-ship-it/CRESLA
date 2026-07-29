@@ -1,11 +1,55 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Home, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Home, Eye, EyeOff, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      router.push('/');
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-white dark:bg-slate-900">
@@ -42,8 +86,16 @@ export default function LoginPage() {
             <p className="text-slate-500 dark:text-slate-400">Log in to your account to continue</p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-center gap-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-400">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
           {/* Form */}
-          <form className="space-y-5 mt-10">
+          <form onSubmit={handleSubmit} className="space-y-5 mt-10">
             {/* Email */}
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -57,6 +109,8 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all duration-300 dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-slate-400"
                   required
                 />
@@ -81,6 +135,8 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all duration-300 dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-slate-400"
                   required
                 />
@@ -97,9 +153,17 @@ export default function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-primary to-blue-700 hover:to-blue-600 text-white font-semibold rounded-2xl shadow-lg shadow-primary/30 hover:shadow-primary/40 transform hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/40"
+              disabled={loading}
+              className="w-full py-3.5 bg-gradient-to-r from-primary to-blue-700 hover:to-blue-600 text-white font-semibold rounded-2xl shadow-lg shadow-primary/30 hover:shadow-primary/40 transform hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Sign In
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
@@ -115,7 +179,10 @@ export default function LoginPage() {
 
           {/* Social Logins */}
           <div className="grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 text-sm font-medium text-slate-700 dark:text-slate-300 hover:scale-[1.02]">
+            <button 
+              onClick={handleGoogleLogin}
+              className="flex items-center justify-center py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 text-sm font-medium text-slate-700 dark:text-slate-300 hover:scale-[1.02]"
+            >
               <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -146,7 +213,7 @@ export default function LoginPage() {
 
           {/* Footer Link */}
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/auth/register" className="font-semibold text-primary hover:text-primary/80 transition-colors">
               Sign up
             </Link>

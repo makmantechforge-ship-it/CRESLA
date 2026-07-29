@@ -2,13 +2,24 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { User, Building, Briefcase, Mail, Lock, Check } from "lucide-react";
+import { User, Building, Briefcase, Mail, Lock, Check, Loader2, AlertCircle } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 type AccountType = "tenant" | "landlord" | "agent";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [accountType, setAccountType] = useState<AccountType>("tenant");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const accountTypes = [
     {
@@ -30,6 +41,85 @@ export default function RegisterPage() {
       icon: Briefcase,
     },
   ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (!agreed) {
+      setError("You must agree to the Terms & Conditions.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            account_type: accountType,
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      // If Supabase requires email confirmation
+      if (data.user && !data.session) {
+        setSuccess(true);
+      } else {
+        // Auto-confirmed, redirect to home
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-10 shadow-xl border border-slate-200 dark:border-slate-800 text-center"
+        >
+          <div className="mx-auto w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6">
+            <Check className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Check your email</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-8">
+            We&apos;ve sent a confirmation link to <strong className="text-slate-900 dark:text-white">{email}</strong>. Please click the link to verify your account.
+          </p>
+          <Link
+            href="/auth/login"
+            className="inline-block w-full py-3 bg-gradient-to-r from-primary to-blue-700 text-white font-semibold rounded-2xl shadow-md hover:shadow-lg transition-all"
+          >
+            Go to Login
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -54,7 +144,19 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-10">
-            <form action="#" method="POST" className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 flex items-center gap-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-400"
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                {error}
+              </motion.div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Account Type Selection */}
               <div>
                 <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-slate-200 mb-3">
@@ -122,6 +224,8 @@ export default function RegisterPage() {
                     type="text"
                     autoComplete="name"
                     required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     className="block w-full rounded-xl border-0 py-2.5 pl-10 pr-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:focus:ring-primary sm:text-sm sm:leading-6 transition-all"
                     placeholder="John Doe"
                   />
@@ -146,6 +250,8 @@ export default function RegisterPage() {
                     type="email"
                     autoComplete="email"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="block w-full rounded-xl border-0 py-2.5 pl-10 pr-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:focus:ring-primary sm:text-sm sm:leading-6 transition-all"
                     placeholder="you@example.com"
                   />
@@ -170,6 +276,8 @@ export default function RegisterPage() {
                     type="password"
                     autoComplete="new-password"
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="block w-full rounded-xl border-0 py-2.5 pl-10 pr-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:focus:ring-primary sm:text-sm sm:leading-6 transition-all"
                     placeholder="••••••••"
                   />
@@ -194,6 +302,8 @@ export default function RegisterPage() {
                     type="password"
                     autoComplete="new-password"
                     required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     className="block w-full rounded-xl border-0 py-2.5 pl-10 pr-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:focus:ring-primary sm:text-sm sm:leading-6 transition-all"
                     placeholder="••••••••"
                   />
@@ -205,7 +315,8 @@ export default function RegisterPage() {
                   id="terms"
                   name="terms"
                   type="checkbox"
-                  required
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-700 dark:bg-slate-900 dark:checked:bg-primary"
                 />
                 <label
@@ -227,9 +338,17 @@ export default function RegisterPage() {
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   type="submit"
-                  className="flex w-full justify-center rounded-xl bg-gradient-to-r from-primary to-blue-700 px-3 py-3 text-sm font-semibold leading-6 text-white shadow-md hover:from-primary/90 hover:to-blue-700/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all"
+                  disabled={loading}
+                  className="flex w-full justify-center items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-700 px-3 py-3 text-sm font-semibold leading-6 text-white shadow-md hover:from-primary/90 hover:to-blue-700/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Create account
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create account"
+                  )}
                 </motion.button>
               </div>
             </form>
