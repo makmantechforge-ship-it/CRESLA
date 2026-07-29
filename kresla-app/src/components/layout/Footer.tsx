@@ -13,7 +13,7 @@ export default function Footer() {
                 C
               </div>
               <span className="font-bold text-2xl tracking-tight text-white">
-                Kresla
+                CRESLA
               </span>
             </Link>
             <p className="text-slate-400 leading-relaxed text-sm">
@@ -79,7 +79,7 @@ export default function Footer() {
               </div>
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-primary flex-shrink-0" />
-                <span className="text-slate-400 text-sm">hello@kresla.com</span>
+                <span className="text-slate-400 text-sm">hello@cresla.com</span>
               </div>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function Footer() {
 
         <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-slate-500 text-sm">
-            © 2026 Kresla Technologies. All rights reserved.
+            © 2026 CRESLA Technologies. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-4 text-sm text-slate-500">
             <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>

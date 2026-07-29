@@ -103,7 +103,7 @@ export default function HomePage() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="text-lg md:text-2xl text-slate-200 mb-10 max-w-2xl font-light"
           >
-            Discover verified properties across South Africa
+            Discover verified properties across Africa
           </motion.p>
 
           {/* SEARCH BAR */}
@@ -261,7 +261,7 @@ export default function HomePage() {
                       
                       <div className="flex items-center text-slate-500 text-sm mb-4">
                         <MapPin className="w-4 h-4 mr-1.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{property.suburb ? `${property.suburb}, ${property.city}` : (property.location?.address || property.location || 'Johannesburg, South Africa')}</span>
+                        <span className="truncate">{property.suburb ? `${property.suburb}, ${property.city}` : (property.location?.address || property.location || 'Johannesburg, Africa')}</span>
                       </div>
 
                       <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-slate-600">
@@ -299,10 +299,10 @@ export default function HomePage() {
 
       {/* 4. POPULAR CITIES */}
       <section className="py-20 px-4 max-w-7xl mx-auto">
-        <div className="mb-10 text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Popular Cities</h2>
-          <p className="text-slate-500">Find properties in South Africa's most sought-after locations</p>
-        </div>
+          <div className="max-w-3xl mb-16">
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">Popular Cities</h2>
+            <p className="text-slate-500">Find properties in Africa&apos;s most sought-after locations</p>
+          </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {popularCities?.map((city: any, i: number) => (
@@ -338,7 +338,7 @@ export default function HomePage() {
       <section className="py-20 px-4 bg-white border-y border-slate-100 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">How Kresla Works</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">How CRESLA Works</h2>
             <p className="text-slate-500">Your journey to finding the perfect property in three simple steps</p>
           </div>
 
@@ -403,7 +403,7 @@ export default function HomePage() {
             List Your Property Today
           </h2>
           <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-            Join thousands of verified landlords and property managers on Kresla. Reach a wider audience and manage your listings with our premium tools.
+            Join thousands of verified landlords and property managers on CRESLA. Reach a wider audience and manage your listings with our premium tools.
           </p>
           
           <motion.div 

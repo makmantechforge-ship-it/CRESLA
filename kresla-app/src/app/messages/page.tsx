@@ -66,7 +66,7 @@ const mockConversations = [
     online: false,
     unreadCount: 1,
     messages: [
-      { id: 'm1', senderId: 'c4', text: 'Your listing has been approved and is now live on Kresla.', timestamp: 'Sunday', isRead: false },
+      { id: 'm1', senderId: 'c4', text: 'Your listing has been approved and is now live on CRESLA.', timestamp: 'Sunday', isRead: false },
     ]
   },
 ];

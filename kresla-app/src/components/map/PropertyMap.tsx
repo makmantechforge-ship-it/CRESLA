@@ -40,7 +40,7 @@ export default function PropertyMap() {
     );
   }
 
-  const center: [number, number] = [-28.4793, 24.6727]; // South Africa center
+  const center: [number, number] = [-28.4793, 24.6727]; // Africa center
 
   return (
     <MapContainer 

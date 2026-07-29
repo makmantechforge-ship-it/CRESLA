@@ -64,7 +64,7 @@ export default function LoginPage() {
         <div className="relative z-20 flex flex-col items-start justify-end h-full p-16 w-full text-white">
           <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-3xl max-w-lg shadow-2xl">
             <h2 className="text-3xl font-semibold mb-4 leading-tight">
-              Welcome back to Kresla, the trusted home of premium real estate.
+              Welcome back to CRESLA, the trusted home of premium real estate.
             </h2>
             <p className="text-slate-200 text-lg opacity-90">
               Discover extraordinary properties, exceptional experiences, and a community of discerning buyers and sellers.

@@ -63,7 +63,7 @@ export default function AdminDashboard() {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Building2 className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-primary">Kresla Admin</span>
+          <span className="text-xl font-bold tracking-tight text-primary">CRESLA Admin</span>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -296,7 +296,7 @@ export default function AdminDashboard() {
           
           {/* Footer */}
           <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-200 text-center text-sm text-slate-400">
-            &copy; {new Date().getFullYear()} Kresla Platform Administration
+            &copy; {new Date().getFullYear()} CRESLA Platform Administration
           </div>
         </div>
       </main>

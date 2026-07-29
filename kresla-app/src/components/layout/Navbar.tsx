@@ -83,7 +83,7 @@ export default function Navbar() {
                 C
               </div>
               <span className="font-bold text-2xl tracking-tight text-slate-900 dark:text-white">
-                Kresla
+                CRESLA
               </span>
             </Link>
           </div>

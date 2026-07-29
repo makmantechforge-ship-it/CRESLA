@@ -132,7 +132,7 @@ export default function RegisterPage() {
                 K
               </div>
               <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Kresla
+                CRESLA
               </span>
             </Link>
             <h2 className="mt-8 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -384,7 +384,7 @@ export default function RegisterPage() {
               Elevate Your Lifestyle.
             </h3>
             <p className="mt-4 max-w-xl text-lg text-slate-200">
-              Join Kresla and gain access to an exclusive network of premium
+              Join CRESLA and gain access to an exclusive network of premium
               properties, trusted landlords, and top-tier real estate agents.
             </p>
           </motion.div>

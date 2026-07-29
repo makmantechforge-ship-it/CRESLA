@@ -7,9 +7,9 @@ import Footer from "@/components/layout/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Kresla | Premium Real Estate Marketplace",
-  description: "Discover premium real estate properties with Kresla. Find your dream home, commercial space, or investment property.",
-  keywords: "real estate, premium property, buy home, rent apartment, commercial real estate, Kresla",
+  title: "CRESLA | Premium Real Estate Marketplace",
+  description: "Discover premium real estate properties with CRESLA. Find your dream home, commercial space, or investment property.",
+  keywords: "real estate, premium property, buy home, rent apartment, commercial real estate, CRESLA",
 };
 
 export default function RootLayout({

@@ -84,7 +84,7 @@ export default function DashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">
               K
             </div>
-            <span className="text-2xl font-bold tracking-tight text-primary">Kresla</span>
+            <span className="text-2xl font-bold tracking-tight text-primary">CRESLA</span>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
             <X size={20} />
@@ -276,7 +276,7 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-r from-primary to-blue-600 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-primary/20">
               <div>
                 <h2 className="text-2xl font-bold mb-2">Ready to expand your portfolio?</h2>
-                <p className="text-blue-100 max-w-md">Reach thousands of potential tenants by listing your new property on Kresla today.</p>
+                <p className="text-blue-100 max-w-md">Reach thousands of potential tenants by listing your new property on CRESLA today.</p>
               </div>
               <button className="shrink-0 flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300">
                 <Plus size={20} />
