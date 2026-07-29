@@ -27,13 +27,13 @@ export default function Navbar() {
     const supabase = createClient();
 
     // Get the current user on mount
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
+    supabase.auth.getUser().then(({ data }: any) => {
+      setUser(data?.user ?? null);
     });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (_event: any, session: any) => {
         setUser(session?.user ?? null);
       }
     );
