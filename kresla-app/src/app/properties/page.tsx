@@ -1,88 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, SlidersHorizontal, Bed, Bath, Car, Heart, ShieldCheck, MapPin, X, Map } from 'lucide-react';
-
-// Attempt to import properties, but provide a robust fallback if it doesn't exist yet.
-// @ts-ignore
 import { properties as importedProperties } from '@/data/properties';
-
-const fallbackProperties = [
-  {
-    id: '1',
-    title: 'Modern Glass Villa',
-    price: 15000000,
-    location: 'Camps Bay, Cape Town',
-    type: 'House',
-    bedrooms: 4,
-    bathrooms: 4,
-    parking: 2,
-    image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
-    verified: true,
-    amenities: ['Pool', 'Ocean View', 'Security']
-  },
-  {
-    id: '2',
-    title: 'Luxury Penthouse',
-    price: 8500000,
-    location: 'Sandton, Johannesburg',
-    type: 'Apartment',
-    bedrooms: 3,
-    bathrooms: 2,
-    parking: 2,
-    image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
-    verified: true,
-    amenities: ['Gym', 'Concierge', 'Balcony']
-  },
-  {
-    id: '3',
-    title: 'Minimalist Estate',
-    price: 12000000,
-    location: 'Constantia, Cape Town',
-    type: 'House',
-    bedrooms: 5,
-    bathrooms: 4,
-    parking: 3,
-    image: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=800&q=80',
-    verified: false,
-    amenities: ['Garden', 'Wine Cellar', 'Pool']
-  },
-  {
-    id: '4',
-    title: 'Urban Loft Workspace',
-    price: 3200000,
-    location: 'Woodstock, Cape Town',
-    type: 'Apartment',
-    bedrooms: 1,
-    bathrooms: 1,
-    parking: 1,
-    image: 'https://images.unsplash.com/photo-1502672260266-1c1cd2cb8004?auto=format&fit=crop&w=800&q=80',
-    verified: true,
-    amenities: ['High Speed Internet', 'City Views']
-  },
-  {
-    id: '5',
-    title: 'Clifton Beach Retreat',
-    price: 25000000,
-    location: 'Clifton, Cape Town',
-    type: 'House',
-    bedrooms: 3,
-    bathrooms: 3,
-    parking: 2,
-    image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=80',
-    verified: true,
-    amenities: ['Direct Beach Access', 'Pool', 'Smart Home']
-  }
-];
-
-const allProperties = (typeof importedProperties !== 'undefined' && importedProperties?.length > 0) 
-  ? importedProperties 
-  : fallbackProperties;
-
-const propertyTypes = ['All', 'House', 'Apartment', 'Townhouse', 'Estate'];
+import { getProperties } from '@/utils/supabase/queries';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('en-ZA', {
@@ -100,6 +24,24 @@ export default function PropertiesPage() {
   const [bedrooms, setBedrooms] = useState('Any');
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [allProperties, setAllProperties] = useState<any[]>(importedProperties || []);
+
+  useEffect(() => {
+    getProperties().then((dbProps) => {
+      if (dbProps && dbProps.length > 0) {
+        setAllProperties(dbProps.map((p) => ({
+          ...p,
+          priceType: p.price_type,
+          sizeUnit: p.size_unit,
+          petFriendly: p.pet_friendly,
+          isVerified: p.verified,
+          image: p.images?.[0],
+        })));
+      }
+    });
+  }, []);
+
+  const propertyTypes = ['All', 'House', 'Apartment', 'Townhouse', 'Estate'];
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { properties } from '@/data/properties';
+import React, { useState, useEffect } from 'react';
+import { properties as importedProperties } from '@/data/properties';
+import { getPropertyById } from '@/utils/supabase/queries';
 import { 
   MapPin, 
   Heart, 
@@ -22,8 +23,49 @@ import {
 import Link from 'next/link';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
-  const property = properties.find((p) => p.id === params.id);
+  const [property, setProperty] = useState<any>(importedProperties.find((p) => p.id === params.id) || null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPropertyById(params.id).then((dbProp) => {
+      if (dbProp) {
+        setProperty({
+          ...dbProp,
+          priceType: dbProp.price_type,
+          sizeUnit: dbProp.size_unit,
+          petFriendly: dbProp.pet_friendly,
+          isVerified: dbProp.verified,
+          availableDate: dbProp.available_date,
+          landlord: dbProp.profiles ? {
+            id: dbProp.profiles.id,
+            name: dbProp.profiles.full_name,
+            avatar: dbProp.profiles.avatar_url,
+            verified: dbProp.profiles.verified,
+            rating: dbProp.profiles.rating,
+            properties: dbProp.profiles.properties_count,
+            responseTime: dbProp.profiles.response_time,
+          } : {
+            name: 'Unknown',
+            avatar: '',
+            verified: false,
+            rating: 0,
+            properties: 0,
+            responseTime: '',
+          },
+        });
+      }
+      setLoading(false);
+    });
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!property) {
     return (
@@ -111,7 +153,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
               </div>
               
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 sm:gap-4">
-                {property.images.map((image, index) => (
+                {property.images?.map((image: string, index: number) => (
                   <button
                     key={index}
                     onClick={() => setActiveImageIndex(index)}
@@ -182,7 +224,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
             <div className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Amenities</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {property.amenities.map((amenity, index) => (
+                {property.amenities?.map((amenity: string, index: number) => (
                   <div key={index} className="flex items-center space-x-3 text-gray-700 dark:text-gray-200">
                     <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
                     <span className="font-medium">{amenity}</span>

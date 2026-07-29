@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,7 +25,8 @@ import {
   Key,
   ShieldCheck
 } from 'lucide-react';
-import { properties, categories, popularCities } from '@/data/properties';
+import { properties as mockProperties, categories, popularCities } from '@/data/properties';
+import { getProperties } from '@/utils/supabase/queries';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('en-ZA', {
@@ -69,7 +70,35 @@ const staggerContainer: any = {
 export default function HomePage() {
   const [searchLocation, setSearchLocation] = useState('');
   const [searchType, setSearchType] = useState('buy');
-  const featuredProperties = properties?.filter((p: any) => p.featured).slice(0, 6) || [];
+  const [featuredProperties, setFeaturedProperties] = useState<any[]>(
+    mockProperties?.filter((p: any) => p.featured).slice(0, 6) || []
+  );
+
+  useEffect(() => {
+    // Try to fetch from Supabase, fall back to mock data
+    getProperties({ featured: true, limit: 6 }).then((dbProps) => {
+      if (dbProps && dbProps.length > 0) {
+        // Map DB fields to match template expectations
+        setFeaturedProperties(dbProps.map((p) => ({
+          ...p,
+          priceType: p.price_type,
+          sizeUnit: p.size_unit,
+          petFriendly: p.pet_friendly,
+          isVerified: p.verified,
+          image: p.images?.[0],
+          landlord: p.profiles ? {
+            id: p.profiles.id,
+            name: p.profiles.full_name,
+            avatar: p.profiles.avatar_url,
+            verified: p.profiles.verified,
+            rating: p.profiles.rating,
+            properties: p.profiles.properties_count,
+            responseTime: p.profiles.response_time,
+          } : undefined,
+        })));
+      }
+    });
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-50">
