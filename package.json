@@ -1,0 +1,10 @@
+{
+  "name": "cresla-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix kresla-app run dev",
+    "build": "npm --prefix kresla-app run build",
+    "start": "npm --prefix kresla-app run start"
+  }
+}
