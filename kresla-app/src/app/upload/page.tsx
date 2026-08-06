@@ -63,7 +63,8 @@ export default function UploadPropertyPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data }: any) => {
+      const user = data?.user;
       if (!user) {
         router.push('/auth/login');
         return;

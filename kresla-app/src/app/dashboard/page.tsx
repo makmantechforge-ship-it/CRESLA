@@ -76,9 +76,9 @@ export default function DashboardPage() {
           .select('id, views, title')
           .eq('landlord_id', user.id);
 
-        const propertyIds = properties?.map(p => p.id) || [];
+        const propertyIds = properties?.map((p: any) => p.id) || [];
         const totalProperties = propertyIds.length;
-        const totalViews = properties?.reduce((sum, p) => sum + (p.views || 0), 0) || 0;
+        const totalViews = properties?.reduce((sum: number, p: any) => sum + (p.views || 0), 0) || 0;
 
         // Fetch messages
         const { count: messagesCount } = await supabase
@@ -125,7 +125,7 @@ export default function DashboardPage() {
         ];
 
         if (recentMsgs) {
-          const mappedActivity = recentMsgs.map((msg: any, index) => {
+          const mappedActivity = recentMsgs.map((msg: any, index: number) => {
             const senderName = msg.profiles ? `${msg.profiles.first_name} ${msg.profiles.last_name}` : 'Unknown User';
             const initials = senderName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
             
@@ -136,7 +136,7 @@ export default function DashboardPage() {
             if (diffHours === 0) timeStr = 'Just now';
             else if (diffHours > 24) timeStr = `${Math.floor(diffHours / 24)} days ago`;
             
-            const prop = properties?.find(p => p.id === msg.property_id);
+            const prop = properties?.find((p: any) => p.id === msg.property_id);
             const propName = prop?.title || 'a property';
 
             return {
