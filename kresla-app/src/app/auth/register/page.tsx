@@ -367,9 +367,10 @@ export default function RegisterPage() {
                 type="button"
                 onClick={async () => {
                   const supabase = createClient();
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cresla.onrender.com';
                   await supabase.auth.signInWithOAuth({
                     provider: 'google',
-                    options: { redirectTo: `${window.location.origin}/` },
+                    options: { redirectTo: `${origin}/` },
                   });
                 }}
                 className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"

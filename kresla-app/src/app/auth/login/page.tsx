@@ -43,10 +43,11 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     const supabase = createClient();
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cresla.onrender.com';
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${origin}/`,
       },
     });
   };
