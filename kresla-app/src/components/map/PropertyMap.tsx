@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { properties } from '@/data/properties';
+import { getProperties } from '@/utils/supabase/queries';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Bed, Bath, Square, MapPin } from 'lucide-react';
 
 const createCustomIcon = (price: string) => {
@@ -20,6 +21,7 @@ const createCustomIcon = (price: string) => {
 
 export default function PropertyMap() {
   const [mounted, setMounted] = useState(false);
+  const [properties, setProperties] = useState<any[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -30,6 +32,14 @@ export default function PropertyMap() {
       iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
     });
+
+    const fetchProperties = async () => {
+      const data = await getProperties();
+      if (data) {
+        setProperties(data);
+      }
+    };
+    fetchProperties();
   }, []);
 
   if (!mounted) {
@@ -40,12 +50,12 @@ export default function PropertyMap() {
     );
   }
 
-  const center: [number, number] = [-28.4793, 24.6727]; // Africa center
+  const center: [number, number] = [-5, 20]; // Africa center
 
   return (
     <MapContainer 
       center={center} 
-      zoom={12} 
+      zoom={4} 
       className="w-full h-full z-0"
       zoomControl={false}
     >
@@ -66,7 +76,7 @@ export default function PropertyMap() {
             icon={createCustomIcon(priceStr)}
           >
             <Popup className="property-popup" maxWidth={320} minWidth={320}>
-              <div className="flex flex-col gap-3 p-1">
+              <Link href={`/properties/${property.id}`} className="block flex flex-col gap-3 p-1 hover:opacity-95 transition-opacity">
                 <div className="relative w-full h-40 rounded-xl overflow-hidden bg-slate-100">
                   <Image 
                     src={property.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}
@@ -75,7 +85,7 @@ export default function PropertyMap() {
                     className="object-cover hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-[#1034A6] shadow-sm">
-                    {property.priceType === 'rent' ? 'For Rent' : 'For Sale'}
+                    {property.price_type === 'rent' ? 'For Rent' : 'For Sale'}
                   </div>
                 </div>
                 
@@ -101,10 +111,10 @@ export default function PropertyMap() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Square className="w-4 h-4 text-slate-400" />
-                    <span className="font-medium">{property.size} {property.sizeUnit}</span>
+                    <span className="font-medium">{property.size} {property.size_unit}</span>
                   </div>
                 </div>
-              </div>
+              </Link>
             </Popup>
           </Marker>
         );

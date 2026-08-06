@@ -171,7 +171,7 @@ export default function Navbar() {
                 </div>
 
                 <Link
-                  href="/dashboard"
+                  href="/upload"
                   className="bg-gradient-to-r from-primary to-primary-light text-white px-6 py-2.5 rounded-full font-medium shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-0.5 transition-all duration-300"
                 >
                   List Property

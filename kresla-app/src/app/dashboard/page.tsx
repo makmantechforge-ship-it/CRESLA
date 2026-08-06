@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -19,22 +19,10 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronRight
+  Loader2
 } from 'lucide-react';
-
-const stats = [
-  { title: 'Total Properties', value: '12', trend: '+2 this week', trendUp: true, icon: Building2 },
-  { title: 'Total Views', value: '48.2k', trend: '+14% this month', trendUp: true, icon: Eye },
-  { title: 'Messages', value: '24', trend: '-2 this week', trendUp: false, icon: MessageSquare },
-  { title: 'Favorites', value: '1,492', trend: '+8% this month', trendUp: true, icon: Heart },
-];
-
-const recentActivity = [
-  { id: 1, user: 'Sarah Jenkins', action: 'saved your property', subject: 'Villa Nova', time: '2 hours ago', avatar: 'SJ', color: 'bg-emerald-100 text-emerald-700' },
-  { id: 2, user: 'Michael Chen', action: 'sent an inquiry on', subject: '15 Jacaranda Lane', time: '5 hours ago', avatar: 'MC', color: 'bg-blue-100 text-blue-700' },
-  { id: 3, user: 'Emma Watson', action: 'requested a tour for', subject: 'Oceanview Penthouse', time: 'Yesterday', avatar: 'EW', color: 'bg-amber-100 text-amber-700' },
-  { id: 4, user: 'David Smith', action: 'left a review on', subject: 'Sunset Apartments', time: 'Yesterday', avatar: 'DS', color: 'bg-purple-100 text-purple-700' },
-];
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
 const chartData = [
   { day: 'Mon', height: '40%' },
@@ -56,6 +44,149 @@ const navItems = [
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  const [statsData, setStatsData] = useState({
+    totalProperties: 0,
+    totalViews: 0,
+    messagesCount: 0,
+    favoritesCount: 0
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
+  const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/auth/login');
+          return;
+        }
+
+        // Get profile
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        setUserData({ ...user, ...profile });
+
+        // Fetch user's properties
+        const { data: properties } = await supabase
+          .from('properties')
+          .select('id, views, title')
+          .eq('landlord_id', user.id);
+
+        const propertyIds = properties?.map(p => p.id) || [];
+        const totalProperties = propertyIds.length;
+        const totalViews = properties?.reduce((sum, p) => sum + (p.views || 0), 0) || 0;
+
+        // Fetch messages
+        const { count: messagesCount } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('receiver_id', user.id);
+
+        // Fetch favorites on user's properties
+        let favoritesCount = 0;
+        if (propertyIds.length > 0) {
+          const { count: favCount } = await supabase
+            .from('favorites')
+            .select('property_id', { count: 'exact', head: true })
+            .in('property_id', propertyIds);
+          favoritesCount = favCount || 0;
+        }
+
+        setStatsData({
+          totalProperties,
+          totalViews,
+          messagesCount: messagesCount || 0,
+          favoritesCount
+        });
+
+        // Recent activity (messages to the user)
+        const { data: recentMsgs } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            created_at,
+            content,
+            property_id,
+            profiles!messages_sender_id_fkey(first_name, last_name)
+          `)
+          .eq('receiver_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(4);
+
+        const colors = [
+          'bg-emerald-100 text-emerald-700',
+          'bg-blue-100 text-blue-700',
+          'bg-amber-100 text-amber-700',
+          'bg-purple-100 text-purple-700'
+        ];
+
+        if (recentMsgs) {
+          const mappedActivity = recentMsgs.map((msg: any, index) => {
+            const senderName = msg.profiles ? `${msg.profiles.first_name} ${msg.profiles.last_name}` : 'Unknown User';
+            const initials = senderName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+            
+            const date = new Date(msg.created_at);
+            const now = new Date();
+            const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+            let timeStr = `${diffHours} hours ago`;
+            if (diffHours === 0) timeStr = 'Just now';
+            else if (diffHours > 24) timeStr = `${Math.floor(diffHours / 24)} days ago`;
+            
+            const prop = properties?.find(p => p.id === msg.property_id);
+            const propName = prop?.title || 'a property';
+
+            return {
+              id: msg.id,
+              user: senderName,
+              action: 'sent a message about',
+              subject: propName,
+              time: timeStr,
+              avatar: initials || 'U',
+              color: colors[index % colors.length]
+            };
+          });
+          
+          // If less than 4 messages, let's just use what we have. If 0, it'll be empty.
+          setRecentActivity(mappedActivity);
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [router, supabase]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/auth/login');
+  };
+
+  const stats = [
+    { title: 'Total Properties', value: statsData.totalProperties.toString(), trend: 'Real data', trendUp: true, icon: Building2 },
+    { title: 'Total Views', value: statsData.totalViews.toLocaleString(), trend: 'Real data', trendUp: true, icon: Eye },
+    { title: 'Messages', value: statsData.messagesCount.toString(), trend: 'Real data', trendUp: true, icon: MessageSquare },
+    { title: 'Favorites', value: statsData.favoritesCount.toLocaleString(), trend: 'Real data', trendUp: true, icon: Heart },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <p className="text-slate-500 font-medium">Loading your dashboard...</p>
+      </div>
+    );
+  }
+
+  const userInitials = userData ? `${userData.first_name?.[0] || ''}${userData.last_name?.[0] || ''}`.toUpperCase() : 'U';
+  const userName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email : 'User';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex overflow-hidden">
@@ -114,14 +245,14 @@ export default function DashboardPage() {
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-medium">
-                JD
+                {userInitials || 'U'}
               </div>
-              <div>
-                <p className="text-sm font-semibold">John Doe</p>
-                <p className="text-xs text-slate-500">Pro Landlord</p>
+              <div className="overflow-hidden">
+                <p className="text-sm font-semibold truncate">{userName}</p>
+                <p className="text-xs text-slate-500">Landlord</p>
               </div>
             </div>
-            <button className="w-full flex items-center justify-center gap-2 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors">
+            <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors">
               <LogOut size={16} />
               Sign Out
             </button>
@@ -168,7 +299,7 @@ export default function DashboardPage() {
             {/* Welcome Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight mb-1">Welcome back, John!</h1>
+                <h1 className="text-3xl font-bold tracking-tight mb-1">Welcome back, {userData?.first_name || 'User'}!</h1>
                 <p className="text-slate-500 dark:text-slate-400">Here's what's happening with your properties today.</p>
               </div>
               <div className="flex gap-3">
@@ -199,7 +330,7 @@ export default function DashboardPage() {
                     </div>
                     <div className={`flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full ${stat.trendUp ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-red-600 bg-red-50 dark:bg-red-900/20'}`}>
                       {stat.trendUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {stat.trend.split(' ')[0]}
+                      {stat.trend}
                     </div>
                   </div>
                   <div>
@@ -255,7 +386,7 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="space-y-6">
-                  {recentActivity.map((activity) => (
+                  {recentActivity.length > 0 ? recentActivity.map((activity) => (
                     <div key={activity.id} className="flex gap-4 group cursor-pointer">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${activity.color}`}>
                         {activity.avatar}
@@ -267,7 +398,9 @@ export default function DashboardPage() {
                         <p className="text-xs text-slate-400 mt-1">{activity.time}</p>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-sm text-slate-500 text-center py-4">No recent activity</div>
+                  )}
                 </div>
               </div>
             </div>

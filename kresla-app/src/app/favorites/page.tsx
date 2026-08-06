@@ -1,27 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { properties } from '@/data/properties';
-import { MapPin, Bed, Bath, Square, Heart, TrendingDown, ArrowRight, Home } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Heart, TrendingDown, ArrowRight, Home, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import { getUserFavorites, removeFavorite } from '@/utils/supabase/queries';
 
 export default function FavoritesPage() {
-  // Use first 4 properties as mock saved properties
-  const [savedProperties, setSavedProperties] = useState(properties.slice(0, 4));
+  const [savedProperties, setSavedProperties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
-  const handleRemove = (id: string) => {
-    setSavedProperties((prev) => prev.filter((p) => p.id !== id));
+  useEffect(() => {
+    const fetchUserAndFavorites = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth/login');
+        return;
+      }
+      setUserId(user.id);
+      try {
+        const favorites = await getUserFavorites(user.id);
+        setSavedProperties(favorites || []);
+      } catch (error) {
+        console.error('Error fetching favorites:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserAndFavorites();
+  }, [router, supabase.auth]);
+
+  const handleRemove = async (id: string) => {
+    if (!userId) return;
+    try {
+      await removeFavorite(userId, id);
+      setSavedProperties((prev) => prev.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+    }
   };
 
-  const formatPrice = (price: number, currency: string) => {
+  const formatPrice = (price: number, currency: string = 'ZAR') => {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
       currency: 'ZAR',
       maximumFractionDigits: 0,
     }).format(price).replace('ZAR', currency);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 pb-16 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 pb-16">
@@ -64,12 +103,14 @@ export default function FavoritesPage() {
                 >
                   {/* Image Container */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <Image
-                      src={property.images[0]}
-                      alt={property.title}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
+                    {property.images?.[0] && (
+                      <Image
+                        src={property.images[0]}
+                        alt={property.title || 'Property image'}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    )}
                     
                     {/* Glassmorphism Overlays */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -77,9 +118,11 @@ export default function FavoritesPage() {
                     {/* Top Badges */}
                     <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                       <div className="flex flex-col gap-2">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-xs font-semibold text-primary dark:text-blue-400 shadow-sm">
-                          {property.category}
-                        </span>
+                        {property.category && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-xs font-semibold text-primary dark:text-blue-400 shadow-sm">
+                            {property.category}
+                          </span>
+                        )}
                         {/* Mock Price Drop on the first item */}
                         {index === 0 && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/90 backdrop-blur-md text-xs font-semibold text-white shadow-sm">
@@ -105,7 +148,7 @@ export default function FavoritesPage() {
                     <div className="mb-2">
                       <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         {formatPrice(property.price, property.currency)}
-                        {property.priceType === 'rent' && (
+                        {property.price_type === 'rent' && (
                           <span className="text-sm font-normal text-slate-500 dark:text-slate-400">/mo</span>
                         )}
                       </div>
@@ -117,7 +160,7 @@ export default function FavoritesPage() {
                     
                     <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-4 line-clamp-1">
                       <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                      {property.suburb}, {property.city}
+                      {property.city}, {property.country}
                     </p>
 
                     {/* Divider */}
@@ -135,7 +178,7 @@ export default function FavoritesPage() {
                       </div>
                       <div className="flex items-center gap-1.5" title="Size">
                         <Square className="w-4 h-4 text-slate-400" />
-                        <span className="font-medium">{property.size} {property.sizeUnit}</span>
+                        <span className="font-medium">{property.size} {property.size_unit}</span>
                       </div>
                     </div>
                   </div>

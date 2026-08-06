@@ -13,72 +13,101 @@ import {
   Mic, 
   ArrowLeft,
   Check,
-  CheckCheck
+  CheckCheck,
+  Loader2
 } from 'lucide-react';
-
-// --- Mock Data ---
-const currentUser = { id: 'u1', name: 'Alex Johnson' };
-
-const mockConversations = [
-  {
-    id: 'c1',
-    contactName: 'Sarah Jenkins',
-    role: 'Real Estate Agent',
-    avatar: 'https://i.pravatar.cc/150?u=sarah',
-    online: true,
-    unreadCount: 2,
-    messages: [
-      { id: 'm1', senderId: 'c1', text: 'Hi Alex, the viewing for the penthouse is confirmed for tomorrow at 2 PM.', timestamp: '10:30 AM', isRead: true },
-      { id: 'm2', senderId: 'u1', text: 'Great, thanks Sarah! Is there parking available?', timestamp: '10:35 AM', isRead: true },
-      { id: 'm3', senderId: 'c1', text: 'Yes, there is dedicated guest parking on the lower level.', timestamp: '11:00 AM', isRead: false },
-      { id: 'm4', senderId: 'c1', text: 'I will send you the access code shortly.', timestamp: '11:01 AM', isRead: false },
-    ]
-  },
-  {
-    id: 'c2',
-    contactName: 'Michael Chen',
-    role: 'Property Owner',
-    avatar: 'https://i.pravatar.cc/150?u=michael',
-    online: false,
-    unreadCount: 0,
-    messages: [
-      { id: 'm1', senderId: 'u1', text: 'Hi Michael, I was wondering if the rent is negotiable?', timestamp: 'Yesterday', isRead: true },
-      { id: 'm2', senderId: 'c2', text: 'Hello! I might be open to a slight reduction for a 2-year lease. What were you thinking?', timestamp: 'Yesterday', isRead: true },
-    ]
-  },
-  {
-    id: 'c3',
-    contactName: 'Emily Davis',
-    role: 'Broker',
-    avatar: 'https://i.pravatar.cc/150?u=emily',
-    online: true,
-    unreadCount: 0,
-    messages: [
-      { id: 'm1', senderId: 'c3', text: 'The documents are ready for your signature.', timestamp: 'Monday', isRead: true },
-      { id: 'm2', senderId: 'u1', text: 'I will review them tonight and get back to you.', timestamp: 'Monday', isRead: true },
-    ]
-  },
-  {
-    id: 'c4',
-    contactName: 'James Wilson',
-    role: 'Support',
-    avatar: 'https://i.pravatar.cc/150?u=james',
-    online: false,
-    unreadCount: 1,
-    messages: [
-      { id: 'm1', senderId: 'c4', text: 'Your listing has been approved and is now live on CRESLA.', timestamp: 'Sunday', isRead: false },
-    ]
-  },
-];
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState(mockConversations);
-  const [activeChatId, setActiveChatId] = useState<string | null>(conversations[0].id);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [isMobileListVisible, setIsMobileListVisible] = useState(true);
+  const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadMessages() {
+      setLoading(true);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        router.push('/auth/login');
+        return;
+      }
+      
+      setCurrentUser(user);
+
+      const { data: messagesData, error } = await supabase
+        .from('messages')
+        .select('*, sender:profiles!sender_id(id, full_name, avatar_url), receiver:profiles!receiver_id(id, full_name, avatar_url)')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (messagesData) {
+        const convMap = new Map();
+        
+        const chronologicalMessages = [...messagesData].reverse();
+        
+        chronologicalMessages.forEach((msg: any) => {
+          const isSender = msg.sender_id === user.id;
+          const contact = isSender ? msg.receiver : msg.sender;
+          
+          if (!contact) return;
+          
+          const contactId = contact.id;
+          
+          if (!convMap.has(contactId)) {
+            convMap.set(contactId, {
+              id: contactId,
+              contactName: contact.full_name || 'Unknown User',
+              role: 'Contact',
+              avatar: contact.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.full_name || 'U')}&background=random`,
+              online: true, 
+              unreadCount: 0,
+              messages: []
+            });
+          }
+          
+          const conv = convMap.get(contactId);
+          if (!isSender && !msg.is_read) {
+            conv.unreadCount += 1;
+          }
+          
+          const date = new Date(msg.created_at);
+          const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          
+          conv.messages.push({
+            id: msg.id,
+            senderId: msg.sender_id,
+            text: msg.content || msg.text || '',
+            timestamp: timeString,
+            isRead: msg.is_read || false
+          });
+        });
+        
+        // Order by most recent message (since we reverse, we can use the order of original data)
+        const orderedContactIds = [...new Set(messagesData.map((msg: any) => msg.sender_id === user.id ? msg.receiver?.id : msg.sender?.id).filter(Boolean))] as string[];
+        
+        const orderedConvList = orderedContactIds.map(id => convMap.get(id));
+
+        setConversations(orderedConvList);
+        if (orderedConvList.length > 0) {
+          setActiveChatId(orderedConvList[0].id);
+        }
+      }
+      setLoading(false);
+    }
+    
+    loadMessages();
+  }, [router, supabase]);
 
   const activeChat = conversations.find(c => c.id === activeChatId);
 
@@ -90,16 +119,22 @@ export default function MessagesPage() {
     scrollToBottom();
   }, [activeChat?.messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeChatId) return;
+    if (!inputText.trim() || !activeChatId || !currentUser) return;
 
+    const textToSend = inputText;
+    setInputText('');
+
+    // Optimistically add to UI
+    const tempId = Date.now().toString();
+    const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newMessage = {
-      id: Date.now().toString(),
+      id: tempId,
       senderId: currentUser.id,
-      text: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isRead: false,
+      text: textToSend,
+      timestamp: timeString,
+      isRead: false
     };
 
     setConversations(prev => prev.map(conv => {
@@ -112,25 +147,62 @@ export default function MessagesPage() {
       return conv;
     }));
 
-    setInputText('');
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: currentUser.id,
+        receiver_id: activeChatId,
+        content: textToSend,
+      })
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error sending message:', error);
+      // Could remove the optimistic message here or show error
+    } else if (data) {
+      // Update with real ID
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === activeChatId) {
+          return {
+            ...conv,
+            messages: conv.messages.map((m: any) => 
+              m.id === tempId ? { ...m, id: data.id } : m
+            )
+          };
+        }
+        return conv;
+      }));
+    }
   };
 
   const selectChat = (id: string) => {
     setActiveChatId(id);
     setIsMobileListVisible(false);
     
-    // Mark as read
+    // Mark as read locally
     setConversations(prev => prev.map(conv => {
       if (conv.id === id) {
         return { ...conv, unreadCount: 0 };
       }
       return conv;
     }));
+    
+    // In a real app we would also update the db:
+    // supabase.from('messages').update({ is_read: true }).eq('sender_id', id).eq('receiver_id', currentUser.id);
   };
 
   const filteredConversations = conversations.filter(c => 
     c.contactName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] bg-slate-50 flex overflow-hidden">
@@ -164,50 +236,56 @@ export default function MessagesPage() {
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((chat) => {
-            const lastMessage = chat.messages[chat.messages.length - 1];
-            const isActive = chat.id === activeChatId;
-            
-            return (
-              <motion.div 
-                key={chat.id}
-                whileHover={{ backgroundColor: isActive ? '#f1f5f9' : '#f8fafc' }}
-                onClick={() => selectChat(chat.id)}
-                className={`
-                  p-4 border-b border-slate-50 cursor-pointer flex items-center gap-4 transition-colors
-                  ${isActive ? 'bg-slate-100' : 'bg-white'}
-                `}
-              >
-                <div className="relative shrink-0">
-                  <img 
-                    src={chat.avatar} 
-                    alt={chat.contactName} 
-                    className="w-12 h-12 rounded-full object-cover border border-slate-200"
-                  />
-                  {chat.online && (
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-semibold text-slate-800 truncate pr-2">{chat.contactName}</h3>
-                    <span className="text-xs text-slate-400 whitespace-nowrap">{lastMessage?.timestamp}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className={`text-sm truncate pr-2 ${chat.unreadCount > 0 ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
-                      {lastMessage?.senderId === currentUser.id ? 'You: ' : ''}{lastMessage?.text}
-                    </p>
-                    {chat.unreadCount > 0 && (
-                      <span className="bg-primary text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0">
-                        {chat.unreadCount}
-                      </span>
+          {filteredConversations.length === 0 && searchQuery === '' ? (
+            <div className="p-8 text-center text-slate-500">
+              <p>No messages yet. Start a conversation by contacting a property owner!</p>
+            </div>
+          ) : (
+            filteredConversations.map((chat) => {
+              const lastMessage = chat.messages[chat.messages.length - 1];
+              const isActive = chat.id === activeChatId;
+              
+              return (
+                <motion.div 
+                  key={chat.id}
+                  whileHover={{ backgroundColor: isActive ? '#f1f5f9' : '#f8fafc' }}
+                  onClick={() => selectChat(chat.id)}
+                  className={`
+                    p-4 border-b border-slate-50 cursor-pointer flex items-center gap-4 transition-colors
+                    ${isActive ? 'bg-slate-100' : 'bg-white'}
+                  `}
+                >
+                  <div className="relative shrink-0">
+                    <img 
+                      src={chat.avatar} 
+                      alt={chat.contactName} 
+                      className="w-12 h-12 rounded-full object-cover border border-slate-200 bg-slate-100"
+                    />
+                    {chat.online && (
+                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
                     )}
                   </div>
-                </div>
-              </motion.div>
-            );
-          })}
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <h3 className="font-semibold text-slate-800 truncate pr-2">{chat.contactName}</h3>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{lastMessage?.timestamp}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className={`text-sm truncate pr-2 ${chat.unreadCount > 0 ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
+                        {lastMessage?.senderId === currentUser?.id ? 'You: ' : ''}{lastMessage?.text}
+                      </p>
+                      {chat.unreadCount > 0 && (
+                        <span className="bg-primary text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0">
+                          {chat.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -231,7 +309,7 @@ export default function MessagesPage() {
                   <img 
                     src={activeChat.avatar} 
                     alt={activeChat.contactName} 
-                    className="w-10 h-10 rounded-full object-cover"
+                    className="w-10 h-10 rounded-full object-cover bg-slate-100"
                   />
                   {activeChat.online && (
                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
@@ -270,8 +348,8 @@ export default function MessagesPage() {
               </div>
               
               <AnimatePresence initial={false}>
-                {activeChat.messages.map((msg, idx) => {
-                  const isMe = msg.senderId === currentUser.id;
+                {activeChat.messages.map((msg: any, idx: number) => {
+                  const isMe = msg.senderId === currentUser?.id;
                   const showAvatar = !isMe && (idx === 0 || activeChat.messages[idx - 1].senderId !== msg.senderId);
 
                   return (
@@ -284,7 +362,7 @@ export default function MessagesPage() {
                       {!isMe && (
                         <div className="w-8 shrink-0 flex items-end">
                           {showAvatar && (
-                            <img src={activeChat.avatar} alt="" className="w-8 h-8 rounded-full shadow-sm" />
+                            <img src={activeChat.avatar} alt="" className="w-8 h-8 rounded-full shadow-sm bg-slate-100" />
                           )}
                         </div>
                       )}
@@ -362,7 +440,11 @@ export default function MessagesPage() {
               <Send size={40} className="text-slate-300 ml-2" />
             </div>
             <h3 className="text-xl font-semibold text-slate-600 mb-2">Your Messages</h3>
-            <p className="text-center max-w-sm">Select a conversation from the left to start messaging, or search for a contact.</p>
+            <p className="text-center max-w-sm">
+              {conversations.length === 0 
+                ? 'No messages yet. Start a conversation by contacting a property owner!' 
+                : 'Select a conversation from the left to start messaging, or search for a contact.'}
+            </p>
           </div>
         )}
       </div>
