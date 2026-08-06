@@ -44,7 +44,7 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    'tenant', -- Default to tenant for all users
+    coalesce(new.raw_user_meta_data->>'account_type', 'tenant'),
     coalesce(new.raw_user_meta_data->>'avatar_url', ''),
     'Zimbabwe',
     'Harare'
