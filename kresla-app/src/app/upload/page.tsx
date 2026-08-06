@@ -43,7 +43,7 @@ export default function UploadPropertyPage() {
     description: '',
     price: '',
     price_type: 'rent',
-    currency: 'R',
+    currency: '$',
     type: 'Apartment',
     category: 'Residential',
     bedrooms: '1',
@@ -53,9 +53,9 @@ export default function UploadPropertyPage() {
     size_unit: 'sqm',
     address: '',
     suburb: '',
-    city: '',
-    province: '',
-    country: 'South Africa',
+    city: 'Harare',
+    province: 'Harare Province',
+    country: 'Zimbabwe',
     lat: '',
     lng: '',
     available_date: '',
@@ -135,6 +135,11 @@ export default function UploadPropertyPage() {
       });
 
       if (error) throw error;
+      
+      // Auto-upgrade tenant user to landlord upon listing a property
+      const { upgradeUserToLandlord } = await import('@/utils/supabase/queries');
+      await upgradeUserToLandlord(userId);
+
       setSuccess(true);
     } catch (err: any) {
       alert('Error submitting property: ' + err.message);

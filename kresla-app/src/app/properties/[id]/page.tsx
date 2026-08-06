@@ -21,8 +21,10 @@ import {
   Calendar
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [property, setProperty] = useState<any>(importedProperties.find((p) => p.id === params.id) || null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -82,9 +84,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
+    return '$' + new Intl.NumberFormat('en-US', {
       maximumFractionDigits: 0,
     }).format(price);
   };
@@ -99,6 +99,36 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
             <span>Back to search</span>
           </Link>
           <div className="flex items-center space-x-3">
+            <button 
+              onClick={async () => {
+                const reason = prompt("Why are you reporting this listing? (e.g. Fraudulent listing, Incorrect price, Fake images)");
+                if (reason) {
+                  try {
+                    const { createClient } = await import('@/utils/supabase/client');
+                    const supabase = createClient();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) {
+                      alert("Please log in to report listings.");
+                      return;
+                    }
+                    const { submitReport } = await import('@/utils/supabase/queries');
+                    await submitReport({
+                      reporter_id: user.id,
+                      property_id: property.id,
+                      reason: reason,
+                    });
+                    alert("Thank you. Your report has been submitted for review.");
+                  } catch (e: any) {
+                    alert("Failed to submit report.");
+                  }
+                }
+              }}
+              className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-slate-400 hover:text-red-500 flex items-center gap-1 text-sm font-medium"
+              title="Report / Flag Scam"
+            >
+              <ShieldCheck className="w-5 h-5 text-red-500" />
+              <span className="hidden sm:inline text-xs text-red-500 font-semibold">Report Scam</span>
+            </button>
             <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-300">
               <Share className="w-5 h-5" />
             </button>
@@ -265,7 +295,10 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <div className="w-full sm:w-auto flex space-x-3">
-                  <button className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-5 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 transition-colors rounded-xl font-medium">
+                  <button 
+                    onClick={() => router.push('/messages')}
+                    className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-5 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 transition-colors rounded-xl font-medium"
+                  >
                     <MessageSquare className="w-4 h-4" />
                     <span>Message</span>
                   </button>

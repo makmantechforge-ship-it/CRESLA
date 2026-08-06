@@ -1,10 +1,9 @@
 -- ============================================
--- CRESLA Database Schema
+-- CRESLA Database Schema (Zimbabwe & USD Edition)
 -- Run this in your Supabase SQL Editor
 -- ============================================
 
 -- 1. PROFILES TABLE
--- Automatically created when a user signs up via the trigger below
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
@@ -12,8 +11,8 @@ create table if not exists public.profiles (
   avatar_url text,
   bio text,
   phone text,
-  city text,
-  country text,
+  city text default 'Harare',
+  country text default 'Zimbabwe',
   verified boolean default false,
   rating numeric(2,1) default 0,
   properties_count integer default 0,
@@ -25,17 +24,14 @@ create table if not exists public.profiles (
 -- Enable RLS on profiles
 alter table public.profiles enable row level security;
 
--- Profiles: anyone can read
 create policy "Profiles are viewable by everyone"
   on public.profiles for select
   using (true);
 
--- Profiles: users can update their own
 create policy "Users can update their own profile"
   on public.profiles for update
   using (auth.uid() = id);
 
--- Profiles: users can insert their own
 create policy "Users can insert their own profile"
   on public.profiles for insert
   with check (auth.uid() = id);
@@ -44,18 +40,19 @@ create policy "Users can insert their own profile"
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, account_type, avatar_url)
+  insert into public.profiles (id, full_name, account_type, avatar_url, country, city)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', ''),
-    coalesce(new.raw_user_meta_data->>'account_type', 'tenant'),
-    coalesce(new.raw_user_meta_data->>'avatar_url', '')
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    'tenant', -- Default to tenant for all users
+    coalesce(new.raw_user_meta_data->>'avatar_url', ''),
+    'Zimbabwe',
+    'Harare'
   );
   return new;
 end;
 $$ language plpgsql security definer;
 
--- Drop trigger if exists, then create
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -68,8 +65,8 @@ create table if not exists public.properties (
   title text not null,
   description text,
   price numeric not null,
-  price_type text default 'sale' check (price_type in ('sale', 'rent')),
-  currency text default 'R',
+  price_type text default 'rent' check (price_type in ('sale', 'rent')),
+  currency text default '$',
   type text default 'Apartment',
   category text default 'Residential',
   bedrooms integer default 0,
@@ -82,9 +79,9 @@ create table if not exists public.properties (
   images text[] default '{}',
   address text,
   suburb text,
-  city text,
-  province text,
-  country text default 'South Africa',
+  city text default 'Harare',
+  province text default 'Harare Province',
+  country text default 'Zimbabwe',
   lat numeric,
   lng numeric,
   amenities text[] default '{}',
@@ -102,27 +99,20 @@ create table if not exists public.properties (
   updated_at timestamptz default now()
 );
 
--- Enable RLS on properties
 alter table public.properties enable row level security;
 
--- Properties: anyone can read
 create policy "Properties are viewable by everyone"
   on public.properties for select
   using (true);
 
--- Properties: authenticated landlords/agents can insert
-create policy "Landlords and agents can insert properties"
+create policy "Authenticated users can insert properties"
   on public.properties for insert
-  with check (
-    auth.uid() = landlord_id
-  );
+  with check (auth.uid() = landlord_id);
 
--- Properties: owners can update their own
 create policy "Owners can update their own properties"
   on public.properties for update
   using (auth.uid() = landlord_id);
 
--- Properties: owners can delete their own
 create policy "Owners can delete their own properties"
   on public.properties for delete
   using (auth.uid() = landlord_id);
@@ -199,4 +189,24 @@ create policy "Authenticated users can add reviews"
   with check (auth.uid() = reviewer_id);
 
 
--- Done! Now run supabase_seed.sql to populate with sample data.
+-- 6. REPORTS TABLE (Scam & Abuse Flagging)
+create table if not exists public.reports (
+  id uuid default gen_random_uuid() primary key,
+  reporter_id uuid references public.profiles(id) on delete cascade not null,
+  property_id uuid references public.properties(id) on delete cascade,
+  reported_user_id uuid references public.profiles(id) on delete cascade,
+  reason text not null,
+  details text,
+  status text default 'pending' check (status in ('pending', 'in_review', 'resolved', 'dismissed')),
+  created_at timestamptz default now()
+);
+
+alter table public.reports enable row level security;
+
+create policy "Users can view their own reports"
+  on public.reports for select
+  using (auth.uid() = reporter_id);
+
+create policy "Authenticated users can submit reports"
+  on public.reports for insert
+  with check (auth.uid() = reporter_id);

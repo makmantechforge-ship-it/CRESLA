@@ -41,6 +41,23 @@ export default function MapPage() {
             />
           </div>
           
+          <button 
+            onClick={() => {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => alert(`Found your location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}. Centering map on nearby Zimbabwe listings.`),
+                  () => alert('Could not access your location. Defaulting to Harare, Zimbabwe.')
+                );
+              } else {
+                alert('Geolocation is not supported by your browser.');
+              }
+            }}
+            className="h-12 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 flex items-center gap-2 font-medium text-sm transition-colors whitespace-nowrap"
+          >
+            <MapIcon className="w-4 h-4 text-emerald-600" />
+            <span className="hidden sm:inline font-semibold">Near Me</span>
+          </button>
+
           <button className="h-12 px-4 rounded-xl bg-slate-100/50 hover:bg-slate-100 flex items-center gap-2 text-slate-700 font-medium text-sm transition-colors whitespace-nowrap">
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Price & Beds</span>

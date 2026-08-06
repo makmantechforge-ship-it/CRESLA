@@ -200,3 +200,32 @@ export async function removeFavorite(userId: string, propertyId: string) {
     throw error;
   }
 }
+
+// SCAM / ABUSE REPORT QUERIES
+export async function submitReport(reportData: {
+  reporter_id: string;
+  property_id?: string;
+  reported_user_id?: string;
+  reason: string;
+  details?: string;
+}) {
+  const supabase = createClient();
+  const { error } = await supabase.from('reports').insert(reportData);
+  if (error) {
+    console.error('Error submitting report:', error);
+    throw error;
+  }
+}
+
+// AUTO-UPGRADE TENANT TO LANDLORD
+export async function upgradeUserToLandlord(userId: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ account_type: 'landlord' })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error upgrading account type:', error);
+  }
+}

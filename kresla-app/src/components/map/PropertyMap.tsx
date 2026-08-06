@@ -22,6 +22,7 @@ const createCustomIcon = (price: string) => {
 export default function PropertyMap() {
   const [mounted, setMounted] = useState(false);
   const [properties, setProperties] = useState<any[]>([]);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -33,10 +34,22 @@ export default function PropertyMap() {
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
     });
 
+    // Detect user position for "Houses Near Me"
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+        (err) => console.log('Location access denied or unavailable', err)
+      );
+    }
+
     const fetchProperties = async () => {
       const data = await getProperties();
-      if (data) {
+      if (data && data.length > 0) {
         setProperties(data);
+      } else {
+        // Fallback to local properties if DB is fresh/empty
+        const { properties: fallbackProps } = await import('@/data/properties');
+        setProperties(fallbackProps as any[]);
       }
     };
     fetchProperties();
@@ -45,17 +58,18 @@ export default function PropertyMap() {
   if (!mounted) {
     return (
       <div className="w-full h-full bg-slate-50 animate-pulse flex items-center justify-center">
-        <div className="text-slate-400 font-medium">Loading map...</div>
+        <div className="text-slate-400 font-medium">Loading Zimbabwe property map...</div>
       </div>
     );
   }
 
-  const center: [number, number] = [-5, 20]; // Africa center
+  // Default to Harare, Zimbabwe coordinates or User location
+  const center: [number, number] = userLocation || [-17.8252, 31.0335];
 
   return (
     <MapContainer 
       center={center} 
-      zoom={4} 
+      zoom={12} 
       className="w-full h-full z-0"
       zoomControl={false}
     >
