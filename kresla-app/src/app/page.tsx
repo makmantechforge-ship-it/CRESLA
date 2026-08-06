@@ -29,12 +29,9 @@ import { properties as mockProperties, categories, popularCities } from '@/data/
 import { getProperties } from '@/utils/supabase/queries';
 
 const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 0,
+  return '$' + new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
-  }).format(price).replace('ZAR', 'R');
+  }).format(price);
 };
 
 const iconMap: Record<string, React.ReactNode> = {

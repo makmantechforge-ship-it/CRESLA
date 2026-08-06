@@ -8,10 +8,20 @@ import { Search, SlidersHorizontal, Bed, Bath, Car, Heart, ShieldCheck, MapPin, 
 import { properties as importedProperties } from '@/data/properties';
 import { getProperties } from '@/utils/supabase/queries';
 
+import dynamic from 'next/dynamic';
+
+const PropertyMap = dynamic(() => import('@/components/map/PropertyMap'), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800">
+      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
+      <p className="text-slate-500 font-medium text-sm">Loading map...</p>
+    </div>
+  )
+});
+
 const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
+  return '$' + new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
   }).format(price);
 };
@@ -320,27 +330,8 @@ export default function PropertiesPage() {
       </div>
 
       {/* RIGHT PANEL: Map (Hidden on mobile) */}
-      <div className="hidden lg:block lg:w-2/5 xl:w-1/2 h-full bg-slate-200 dark:bg-slate-800 relative">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80')] bg-cover bg-center opacity-40 dark:opacity-20 grayscale" />
-        
-        {/* Placeholder Map Overlay */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-black/20 backdrop-blur-[2px]">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl shadow-xl flex flex-col items-center text-center max-w-sm mx-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-              <Map className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-2 text-slate-800 dark:text-white">Interactive Map</h3>
-            <p className="text-sm">Map view is being configured. Interactive properties map will appear here soon.</p>
-          </div>
-        </div>
-        
-        {/* Decorative Map Pins (mock) */}
-        <div className="absolute top-[30%] left-[40%] text-primary animate-bounce shadow-xl rounded-full bg-white p-2">
-           <MapPin className="w-6 h-6 fill-primary/20" />
-        </div>
-        <div className="absolute top-[50%] left-[60%] text-primary shadow-xl rounded-full bg-white p-1">
-           <div className="w-3 h-3 bg-primary rounded-full"></div>
-        </div>
+      <div className="hidden lg:block lg:w-2/5 xl:w-1/2 h-full relative">
+        <PropertyMap />
       </div>
 
       <style jsx global>{`

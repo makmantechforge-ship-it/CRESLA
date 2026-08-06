@@ -46,12 +46,10 @@ export default function FavoritesPage() {
     }
   };
 
-  const formatPrice = (price: number, currency: string = 'ZAR') => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
+  const formatPrice = (price: number) => {
+    return '$' + new Intl.NumberFormat('en-US', {
       maximumFractionDigits: 0,
-    }).format(price).replace('ZAR', currency);
+    }).format(price);
   };
 
   if (loading) {
@@ -147,7 +145,7 @@ export default function FavoritesPage() {
                   <div className="p-5 flex flex-col flex-grow">
                     <div className="mb-2">
                       <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                        {formatPrice(property.price, property.currency)}
+                        {formatPrice(property.price)}
                         {property.price_type === 'rent' && (
                           <span className="text-sm font-normal text-slate-500 dark:text-slate-400">/mo</span>
                         )}

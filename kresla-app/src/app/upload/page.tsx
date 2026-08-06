@@ -286,7 +286,7 @@ export default function UploadPropertyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Country</label>
-                <input name="country" value={form.country} onChange={handleChange} placeholder="e.g. South Africa" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" />
+                <input name="country" value={form.country} onChange={handleChange} placeholder="e.g. Zimbabwe" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" />
               </div>
             </div>
           </div>
