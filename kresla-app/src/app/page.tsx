@@ -74,7 +74,23 @@ export default function HomePage() {
     mockProperties?.filter((p: any) => p.featured).slice(0, 6) || []
   );
 
+  const [userAuth, setUserAuth] = useState<any>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
+
   useEffect(() => {
+    const fetchUser = async () => {
+      const { createClient } = await import('@/utils/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserAuth(user);
+        const { getUserFavorites } = await import('@/utils/supabase/queries');
+        const userFavs = await getUserFavorites(user.id);
+        setFavorites(userFavs.map(f => f.id));
+      }
+    };
+    fetchUser();
+
     // Try to fetch from Supabase, fall back to mock data
     getProperties({ featured: true, limit: 6 }).then((dbProps) => {
       if (dbProps && dbProps.length > 0) {
@@ -99,6 +115,29 @@ export default function HomePage() {
       }
     });
   }, []);
+
+  const toggleFavorite = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    if (!userAuth) {
+      alert("Please log in to save favorites.");
+      return;
+    }
+    
+    const isFavorited = favorites.includes(id);
+    const { addFavorite, removeFavorite } = await import('@/utils/supabase/queries');
+    
+    try {
+      if (isFavorited) {
+        await removeFavorite(userAuth.id, id);
+        setFavorites(prev => prev.filter(fId => fId !== id));
+      } else {
+        await addFavorite(userAuth.id, id);
+        setFavorites(prev => [...prev, id]);
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite", error);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -264,8 +303,11 @@ export default function HomePage() {
                           </div>
                         ) : <div />}
                         
-                        <button className="bg-white/90 backdrop-blur-sm p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-white transition-colors shadow-sm" onClick={(e) => { e.preventDefault(); /* Handle favorite */ }}>
-                          <Heart className="w-5 h-5" />
+                        <button 
+                          className="bg-white/90 backdrop-blur-sm p-2 rounded-full transition-colors shadow-sm"
+                          onClick={(e) => toggleFavorite(e, property.id)}
+                        >
+                          <Heart className={`w-5 h-5 ${favorites.includes(property.id) ? 'fill-red-500 text-red-500' : 'text-slate-400 hover:text-red-500'}`} />
                         </button>
                       </div>
 

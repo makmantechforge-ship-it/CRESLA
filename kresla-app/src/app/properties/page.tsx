@@ -25,8 +25,22 @@ export default function PropertiesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [allProperties, setAllProperties] = useState<any[]>(importedProperties || []);
+  const [userAuth, setUserAuth] = useState<any>(null);
 
   useEffect(() => {
+    const fetchUser = async () => {
+      const { createClient } = await import('@/utils/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserAuth(user);
+        const { getUserFavorites } = await import('@/utils/supabase/queries');
+        const userFavs = await getUserFavorites(user.id);
+        setFavorites(userFavs.map(f => f.id));
+      }
+    };
+    fetchUser();
+    
     getProperties().then((dbProps) => {
       if (dbProps && dbProps.length > 0) {
         setAllProperties(dbProps.map((p) => ({
@@ -43,11 +57,27 @@ export default function PropertiesPage() {
 
   const propertyTypes = ['All', 'House', 'Apartment', 'Townhouse', 'Estate'];
 
-  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+  const toggleFavorite = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(fId => fId !== id) : [...prev, id]
-    );
+    if (!userAuth) {
+      alert("Please log in to save favorites.");
+      return;
+    }
+    
+    const isFavorited = favorites.includes(id);
+    const { addFavorite, removeFavorite } = await import('@/utils/supabase/queries');
+    
+    try {
+      if (isFavorited) {
+        await removeFavorite(userAuth.id, id);
+        setFavorites(prev => prev.filter(fId => fId !== id));
+      } else {
+        await addFavorite(userAuth.id, id);
+        setFavorites(prev => [...prev, id]);
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite", error);
+    }
   };
 
   const filteredProperties = useMemo(() => {
