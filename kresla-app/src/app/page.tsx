@@ -1,32 +1,40 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { 
   MapPin, 
   Search, 
-  Home, 
+  Filter,
+  RotateCcw,
   Building2, 
-  GraduationCap, 
-  Briefcase, 
-  Crown, 
-  Factory, 
-  Palmtree, 
-  Mountain, 
   Heart, 
   Bed, 
   Bath, 
   Car, 
   Maximize, 
   Star, 
-  MessageSquare, 
-  Key,
-  ShieldCheck
+  ShieldCheck,
+  Grid,
+  Map as MapIcon,
+  Loader2,
+  Check
 } from 'lucide-react';
-import { properties as mockProperties, categories, popularCities } from '@/data/properties';
+import { properties as mockProperties } from '@/data/properties';
 import { getProperties } from '@/utils/supabase/queries';
+
+const PropertyMap = dynamic(() => import('@/components/map/PropertyMap'), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-96 flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl">
+      <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+      <p className="text-slate-500 font-medium text-sm">Loading map...</p>
+    </div>
+  )
+});
 
 const formatPrice = (price: number) => {
   return '$' + new Intl.NumberFormat('en-US', {
@@ -34,48 +42,27 @@ const formatPrice = (price: number) => {
   }).format(price);
 };
 
-const iconMap: Record<string, React.ReactNode> = {
-  Home: <Home className="w-8 h-8" />,
-  Building2: <Building2 className="w-8 h-8" />,
-  GraduationCap: <GraduationCap className="w-8 h-8" />,
-  Briefcase: <Briefcase className="w-8 h-8" />,
-  Crown: <Crown className="w-8 h-8" />,
-  Factory: <Factory className="w-8 h-8" />,
-  Palmtree: <Palmtree className="w-8 h-8" />,
-  Mountain: <Mountain className="w-8 h-8" />,
-};
-
-const getIcon = (iconName: string) => {
-  return iconMap[iconName] || <Home className="w-8 h-8" />;
-};
-
-const fadeInUp: any = {
-  hidden: { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } }
-};
-
-const staggerContainer: any = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.15
-    }
-  }
-};
-
 export default function HomePage() {
-  const [searchLocation, setSearchLocation] = useState('');
-  const [searchType, setSearchType] = useState('buy');
-  const [featuredProperties, setFeaturedProperties] = useState<any[]>(
-    mockProperties?.filter((p: any) => p.featured).slice(0, 6) || []
-  );
-
+  const [allProperties, setAllProperties] = useState<any[]>(mockProperties || []);
+  const [loading, setLoading] = useState(true);
   const [userAuth, setUserAuth] = useState<any>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCity, setSelectedCity] = useState('All');
+  const [selectedSuburb, setSelectedSuburb] = useState('All');
+  const [selectedType, setSelectedType] = useState('All');
+  const [selectedPriceType, setSelectedPriceType] = useState('All');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [bedrooms, setBedrooms] = useState('Any');
+  const [bathrooms, setBathrooms] = useState('Any');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const init = async () => {
       const { createClient } = await import('@/utils/supabase/client');
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -85,14 +72,10 @@ export default function HomePage() {
         const userFavs = await getUserFavorites(user.id);
         setFavorites(userFavs.map(f => f.id));
       }
-    };
-    fetchUser();
 
-    // Try to fetch from Supabase, fall back to mock data
-    getProperties({ featured: true, limit: 6 }).then((dbProps) => {
+      const dbProps = await getProperties();
       if (dbProps && dbProps.length > 0) {
-        // Map DB fields to match template expectations
-        setFeaturedProperties(dbProps.map((p) => ({
+        const mapped = dbProps.map((p) => ({
           ...p,
           priceType: p.price_type,
           sizeUnit: p.size_unit,
@@ -108,10 +91,136 @@ export default function HomePage() {
             properties: p.profiles.properties_count,
             responseTime: p.profiles.response_time,
           } : undefined,
-        })));
+        }));
+        setAllProperties(mapped);
+      }
+      setLoading(false);
+    };
+
+    init();
+  }, []);
+
+  // Dynamic Filter Options derived 100% from properties on platform
+  const availableCities = useMemo(() => {
+    const cities = new Set<string>();
+    allProperties.forEach(p => { if (p.city) cities.add(p.city); });
+    return ['All', ...Array.from(cities).sort()];
+  }, [allProperties]);
+
+  const availableSuburbs = useMemo(() => {
+    const suburbs = new Set<string>();
+    allProperties.forEach(p => {
+      if (p.suburb && (selectedCity === 'All' || p.city === selectedCity)) {
+        suburbs.add(p.suburb);
       }
     });
-  }, []);
+    return ['All', ...Array.from(suburbs).sort()];
+  }, [allProperties, selectedCity]);
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    allProperties.forEach(p => { if (p.type) types.add(p.type); });
+    return ['All', ...Array.from(types).sort()];
+  }, [allProperties]);
+
+  const availableAmenities = useMemo(() => {
+    const ams = new Set<string>();
+    allProperties.forEach(p => {
+      if (Array.isArray(p.amenities)) {
+        p.amenities.forEach((a: string) => ams.add(a));
+      }
+    });
+    return Array.from(ams).sort();
+  }, [allProperties]);
+
+  // Filter Execution
+  const filteredProperties = useMemo(() => {
+    return allProperties.filter((property) => {
+      // Search term
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const matchesTitle = property.title?.toLowerCase().includes(term);
+        const matchesDesc = property.description?.toLowerCase().includes(term);
+        const matchesAddress = property.address?.toLowerCase().includes(term);
+        const matchesCity = property.city?.toLowerCase().includes(term);
+        const matchesSuburb = property.suburb?.toLowerCase().includes(term);
+        if (!matchesTitle && !matchesDesc && !matchesAddress && !matchesCity && !matchesSuburb) {
+          return false;
+        }
+      }
+
+      // City filter
+      if (selectedCity !== 'All' && property.city !== selectedCity) {
+        return false;
+      }
+
+      // Suburb filter
+      if (selectedSuburb !== 'All' && property.suburb !== selectedSuburb) {
+        return false;
+      }
+
+      // Property Type filter
+      if (selectedType !== 'All' && property.type !== selectedType) {
+        return false;
+      }
+
+      // Price Type (Rent/Sale) filter
+      const pPriceType = property.priceType || property.price_type;
+      if (selectedPriceType !== 'All' && pPriceType?.toLowerCase() !== selectedPriceType.toLowerCase()) {
+        return false;
+      }
+
+      // Min Price
+      if (minPrice && property.price < parseFloat(minPrice)) {
+        return false;
+      }
+
+      // Max Price
+      if (maxPrice && property.price > parseFloat(maxPrice)) {
+        return false;
+      }
+
+      // Bedrooms
+      if (bedrooms !== 'Any') {
+        const minBeds = parseInt(bedrooms);
+        if (property.bedrooms < minBeds) return false;
+      }
+
+      // Bathrooms
+      if (bathrooms !== 'Any') {
+        const minBaths = parseInt(bathrooms);
+        if (property.bathrooms < minBaths) return false;
+      }
+
+      // Amenities filter
+      if (selectedAmenities.length > 0) {
+        const propAmenities = property.amenities || [];
+        const hasAllSelected = selectedAmenities.every((a: string) => propAmenities.includes(a));
+        if (!hasAllSelected) return false;
+      }
+
+      return true;
+    });
+  }, [allProperties, searchTerm, selectedCity, selectedSuburb, selectedType, selectedPriceType, minPrice, maxPrice, bedrooms, bathrooms, selectedAmenities]);
+
+  const toggleAmenity = (amenity: string) => {
+    setSelectedAmenities(prev => 
+      prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSelectedCity('All');
+    setSelectedSuburb('All');
+    setSelectedType('All');
+    setSelectedPriceType('All');
+    setMinPrice('');
+    setMaxPrice('');
+    setBedrooms('Any');
+    setBathrooms('Any');
+    setSelectedAmenities([]);
+  };
 
   const toggleFavorite = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -136,358 +245,369 @@ export default function HomePage() {
     }
   };
 
+  const activeFilterCount = (selectedCity !== 'All' ? 1 : 0) + 
+    (selectedSuburb !== 'All' ? 1 : 0) + 
+    (selectedType !== 'All' ? 1 : 0) + 
+    (selectedPriceType !== 'All' ? 1 : 0) + 
+    (minPrice ? 1 : 0) + 
+    (maxPrice ? 1 : 0) + 
+    (bedrooms !== 'Any' ? 1 : 0) + 
+    (bathrooms !== 'Any' ? 1 : 0) + 
+    selectedAmenities.length;
+
   return (
-    <main className="min-h-screen bg-slate-50">
-      {/* 1. HERO SECTION */}
-      <section className="relative min-h-[85vh] flex flex-col justify-center items-center px-4 overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0 z-0">
-          <Image 
-            src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80&w=2000" 
-            alt="Hero Background" 
-            fill 
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/90 to-primary-dark/80 backdrop-blur-[2px]"></div>
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 pb-16 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        
+        {/* PLATFORM HEADER */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Building2 className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Platform Properties</h1>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Filter and search verified property listings in real-time.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold px-3 py-1.5 bg-primary/10 text-primary rounded-full border border-primary/20">
+              {filteredProperties.length} {filteredProperties.length === 1 ? 'Property Available' : 'Properties Available'}
+            </span>
+
+            <div className="flex items-center bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                <Grid className="w-4 h-4" /> Grid
+              </button>
+              <button 
+                onClick={() => setViewMode('map')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                <MapIcon className="w-4 h-4" /> Map View
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center text-center mt-16">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
-            className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-6"
-          >
-            Find Your Perfect Place
-          </motion.h1>
-          
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-lg md:text-2xl text-slate-200 mb-10 max-w-2xl font-light"
-          >
-            Discover verified properties across Africa
-          </motion.p>
-
-          {/* SEARCH BAR */}
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="w-full max-w-4xl bg-white/95 backdrop-blur-md rounded-2xl p-2 md:p-4 shadow-2xl flex flex-col md:flex-row items-center gap-3 border border-white/20"
-          >
-            <div className="flex-1 flex items-center w-full bg-slate-100/80 rounded-xl px-4 py-3 border border-transparent focus-within:border-primary/30 transition-colors">
-              <MapPin className="text-slate-400 w-5 h-5 mr-3 flex-shrink-0" />
-              <input 
-                type="text"
-                placeholder="City, neighborhood, or address"
-                value={searchLocation}
-                onChange={(e) => setSearchLocation(e.target.value)}
-                className="w-full bg-transparent border-none outline-none text-slate-700 placeholder-slate-400"
-              />
+        {/* DYNAMIC FILTER PANEL (DERIVED 100% FROM PLATFORM INVENTORY) */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Dynamic Platform Filters</h2>
+              {activeFilterCount > 0 && (
+                <span className="bg-primary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
             </div>
-            
-            <div className="w-full md:w-48 bg-slate-100/80 rounded-xl px-4 py-3 border border-transparent">
-              <select 
-                value={searchType}
-                onChange={(e) => setSearchType(e.target.value)}
-                className="w-full bg-transparent border-none outline-none text-slate-700 cursor-pointer"
+
+            {activeFilterCount > 0 && (
+              <button 
+                onClick={clearAllFilters}
+                className="flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 transition-colors"
               >
-                <option value="buy">Buy</option>
-                <option value="rent">Rent</option>
-                <option value="commercial">Commercial</option>
+                <RotateCcw className="w-3.5 h-3.5" /> Clear All Filters
+              </button>
+            )}
+          </div>
+
+          {/* Primary Filter Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Search Input */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Keyword Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Title, suburb, or details..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* City Dropdown */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">City / Region ({availableCities.length - 1} on platform)</label>
+              <select
+                value={selectedCity}
+                onChange={(e) => {
+                  setSelectedCity(e.target.value);
+                  setSelectedSuburb('All');
+                }}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white cursor-pointer"
+              >
+                {availableCities.map(city => (
+                  <option key={city} value={city}>{city === 'All' ? 'All Cities' : city}</option>
+                ))}
               </select>
             </div>
 
-            <button className="w-full md:w-auto bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl px-8 py-3 font-semibold flex items-center justify-center gap-2 hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
-              <Search className="w-5 h-5" />
-              <span>Search</span>
-            </button>
-          </motion.div>
-
-          {/* STATS */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-wrap justify-center gap-8 md:gap-16 mt-16"
-          >
-            {[
-              { label: 'Properties', value: '10,000+' },
-              { label: 'Verified Landlords', value: '5,000+' },
-              { label: 'Cities', value: '50+' },
-            ].map((stat, i) => (
-              <div key={i} className="flex flex-col items-center">
-                <span className="text-3xl md:text-4xl font-bold text-white mb-1">{stat.value}</span>
-                <span className="text-sm md:text-base text-slate-300 font-medium">{stat.label}</span>
-              </div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* 2. CATEGORIES SECTION */}
-      <section className="py-20 px-4 max-w-7xl mx-auto">
-        <div className="mb-10 text-center md:text-left">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Browse by Category</h2>
-          <p className="text-slate-500">Explore properties tailored to your specific needs</p>
-        </div>
-        
-        <motion.div 
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
-          className="flex overflow-x-auto pb-8 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:pb-0 md:px-0 gap-6 hide-scrollbar"
-        >
-          {categories?.map((cat: any, index: number) => (
-            <motion.div key={cat.id || index} variants={fadeInUp} className="min-w-[200px] md:min-w-0">
-              <Link href={`/properties`}>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-primary/50 hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center cursor-pointer group">
-                  <div className="w-16 h-16 bg-blue-50 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                    {getIcon(cat.icon)}
-                  </div>
-                  <h3 className="font-semibold text-slate-900 mb-1">{cat.name}</h3>
-                  <p className="text-sm text-slate-500">{cat.count} Properties</p>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* 3. FEATURED PROPERTIES */}
-      <section className="py-16 px-4 bg-slate-100">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+            {/* Suburb Dropdown */}
             <div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Featured Properties</h2>
-              <p className="text-slate-500">Hand-picked premium selections just for you</p>
-            </div>
-            <Link href="/properties" className="text-primary font-semibold hover:text-primary-dark transition-colors flex items-center gap-2">
-              View All Properties <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-
-          <motion.div 
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {featuredProperties?.map((property: any) => (
-              <motion.div key={property.id} variants={fadeInUp}>
-                <Link href={`/properties/${property.id}`} className="block">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group border border-slate-100">
-                    {/* Image Container */}
-                    <div className="relative aspect-video overflow-hidden">
-                      <Image 
-                        src={property.image || property.images?.[0] || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80'} 
-                        alt={property.title || 'Property Image'} 
-                        fill 
-                        className="object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
-                      
-                      {/* Top Overlay Badges */}
-                      <div className="absolute top-3 w-full px-3 flex justify-between items-start">
-                        {property.isVerified || property.verified ? (
-                          <div className="bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
-                            <ShieldCheck className="w-3.5 h-3.5" /> Verified
-                          </div>
-                        ) : <div />}
-                        
-                        <button 
-                          className="bg-white/90 backdrop-blur-sm p-2 rounded-full transition-colors shadow-sm"
-                          onClick={(e) => toggleFavorite(e, property.id)}
-                        >
-                          <Heart className={`w-5 h-5 ${favorites.includes(property.id) ? 'fill-red-500 text-red-500' : 'text-slate-400 hover:text-red-500'}`} />
-                        </button>
-                      </div>
-
-                      {/* Bottom Overlay Price */}
-                      <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-4 py-1.5 rounded-lg shadow-lg">
-                        <span className="font-bold text-lg text-primary">{formatPrice(property.price)}</span>
-                        {property.type === 'rent' && <span className="text-xs text-slate-500 ml-1">/mo</span>}
-                      </div>
-                    </div>
-
-                    {/* Content Details */}
-                    <div className="p-5">
-                      <div className="flex justify-between items-start mb-2 gap-2">
-                        <h3 className="font-semibold text-slate-900 text-lg line-clamp-1 group-hover:text-primary transition-colors">
-                          {property.title}
-                        </h3>
-                        <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-xs font-medium shrink-0">
-                          <Star className="w-3.5 h-3.5 fill-current" />
-                          <span>{property.rating?.toFixed(1) || '4.8'}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center text-slate-500 text-sm mb-4">
-                        <MapPin className="w-4 h-4 mr-1.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{property.suburb ? `${property.suburb}, ${property.city}` : (property.location?.address || property.location || 'Johannesburg, Africa')}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-slate-600">
-                        <div className="flex items-center gap-4 text-sm">
-                          {property.bedrooms && (
-                            <div className="flex items-center gap-1.5">
-                              <Bed className="w-4 h-4 text-slate-400" /> <span>{property.bedrooms}</span>
-                            </div>
-                          )}
-                          {property.bathrooms && (
-                            <div className="flex items-center gap-1.5">
-                              <Bath className="w-4 h-4 text-slate-400" /> <span>{property.bathrooms}</span>
-                            </div>
-                          )}
-                          {property.parking && (
-                            <div className="flex items-center gap-1.5" title="Parking">
-                              <Car className="w-4 h-4 text-slate-400" /> <span>{property.parking}</span>
-                            </div>
-                          )}
-                        </div>
-                        {property.size && (
-                          <div className="flex items-center gap-1.5 text-sm font-medium" title="Square Meters">
-                            <Maximize className="w-4 h-4 text-slate-400" /> <span>{property.size}m²</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* 4. POPULAR CITIES */}
-      <section className="py-20 px-4 max-w-7xl mx-auto">
-          <div className="max-w-3xl mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Popular Cities</h2>
-            <p className="text-slate-500">Find properties in Africa&apos;s most sought-after locations</p>
-          </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {popularCities?.map((city: any, i: number) => (
-            <motion.div 
-              key={city.id || i}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              viewport={{ once: true }}
-            >
-              <Link href={`/properties`}>
-                <div className="relative h-64 rounded-2xl overflow-hidden group shadow-lg cursor-pointer">
-                  <Image 
-                    src={city.image || 'https://images.unsplash.com/photo-1577943501625-f773426e7a2b?auto=format&fit=crop&q=80'} 
-                    alt={city.name} 
-                    fill 
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                  
-                  <div className="absolute bottom-6 left-6">
-                    <h3 className="text-2xl font-bold text-white mb-1 group-hover:text-blue-200 transition-colors">{city.name}</h3>
-                    <p className="text-slate-200 text-sm font-medium">{city.count || '100+'} Properties</p>
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. HOW IT WORKS */}
-      <section className="py-20 px-4 bg-white border-y border-slate-100 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">How CRESLA Works</h2>
-            <p className="text-slate-500">Your journey to finding the perfect property in three simple steps</p>
-          </div>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-12">
-            {/* Dotted line connecting steps (desktop only) */}
-            <div className="hidden md:block absolute top-12 left-1/6 right-1/6 h-0.5 border-t-2 border-dashed border-slate-200 -z-10" style={{ width: '66%', left: '17%' }}></div>
-
-            {[
-              {
-                icon: <Search className="w-8 h-8" />,
-                title: 'Search Properties',
-                desc: 'Browse through thousands of verified properties using our smart filters to find exactly what you need.',
-              },
-              {
-                icon: <MessageSquare className="w-8 h-8" />,
-                title: 'Connect & Visit',
-                desc: 'Contact landlords directly through our secure platform and schedule a viewing effortlessly.',
-              },
-              {
-                icon: <Key className="w-8 h-8" />,
-                title: 'Secure & Move In',
-                desc: 'Sign digital leases securely and move into your new dream home with complete peace of mind.',
-              }
-            ].map((step, i) => (
-              <motion.div 
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: i * 0.2 }}
-                viewport={{ once: true }}
-                className="flex flex-col items-center text-center relative bg-white"
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Suburb / Neighborhood</label>
+              <select
+                value={selectedSuburb}
+                onChange={(e) => setSelectedSuburb(e.target.value)}
+                disabled={availableSuburbs.length <= 1}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white cursor-pointer disabled:opacity-50"
               >
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-8 border-white shadow-xl flex items-center justify-center text-primary mb-6 relative">
-                  {step.icon}
-                  <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shadow-md">
-                    {i + 1}
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
-                <p className="text-slate-500 leading-relaxed max-w-sm">{step.desc}</p>
-              </motion.div>
-            ))}
+                {availableSuburbs.map(suburb => (
+                  <option key={suburb} value={suburb}>{suburb === 'All' ? 'All Suburbs' : suburb}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Property Type Dropdown */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Property Type</label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white cursor-pointer"
+              >
+                {availableTypes.map(t => (
+                  <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {/* Secondary Filter Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            
+            {/* Listing Purpose (Rent/Sale) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Listing Purpose</label>
+              <div className="flex gap-2">
+                {['All', 'rent', 'sale'].map(pt => (
+                  <button
+                    key={pt}
+                    onClick={() => setSelectedPriceType(pt)}
+                    className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold capitalize border transition-all ${
+                      selectedPriceType === pt 
+                        ? 'bg-primary text-white border-primary shadow-sm' 
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50'
+                    }`}
+                  >
+                    {pt === 'rent' ? 'For Rent' : pt === 'sale' ? 'For Sale' : 'All'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bedrooms */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                <Bed className="w-3.5 h-3.5" /> Bedrooms
+              </label>
+              <div className="flex gap-1.5">
+                {['Any', '1', '2', '3', '4'].map(b => (
+                  <button
+                    key={b}
+                    onClick={() => setBedrooms(b)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      bedrooms === b 
+                        ? 'bg-primary text-white border-primary shadow-sm' 
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50'
+                    }`}
+                  >
+                    {b === 'Any' ? 'Any' : `${b}+`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Min & Max */}
+            <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Min Price ($)</label>
+                <input
+                  type="number"
+                  placeholder="Min price"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Max Price ($)</label>
+                <input
+                  type="number"
+                  placeholder="Max price"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Amenities Chips Filter */}
+          {availableAmenities.length > 0 && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Filter by Platform Amenities
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableAmenities.map((amenity) => {
+                  const isSelected = selectedAmenities.includes(amenity);
+                  return (
+                    <button
+                      key={amenity}
+                      onClick={() => toggleAmenity(amenity)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                        isSelected 
+                          ? 'bg-primary text-white border-primary shadow-xs' 
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/40'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                      {amenity}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-      </section>
 
-      {/* 6. CTA SECTION */}
-      <section className="py-24 px-4 relative overflow-hidden">
-        {/* Background gradient shapes */}
-        <div className="absolute inset-0 bg-primary z-0" />
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-dark rounded-full mix-blend-multiply filter blur-3xl opacity-50 z-0"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 z-0"></div>
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          className="relative z-10 max-w-4xl mx-auto text-center"
-        >
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            List Your Property Today
-          </h2>
-          <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-            Join thousands of verified landlords and property managers on CRESLA. Reach a wider audience and manage your listings with our premium tools.
-          </p>
-          
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="inline-block"
-          >
-            <Link 
-              href="/dashboard" 
-              className="bg-white text-primary px-8 py-4 rounded-xl font-bold text-lg shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] transition-all flex items-center gap-2"
+        {/* PROPERTY LISTINGS RESULTS SECTION */}
+        {viewMode === 'map' ? (
+          <div className="h-[600px] rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
+            <PropertyMap />
+          </div>
+        ) : loading ? (
+          <div className="py-20 flex flex-col items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mb-3" />
+            <p className="text-slate-500 font-medium text-sm">Loading platform listings...</p>
+          </div>
+        ) : filteredProperties.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 shadow-sm max-w-lg mx-auto">
+            <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Matching Properties</h3>
+            <p className="text-slate-500 text-sm mb-6">No active listings match your selected filter criteria on the platform.</p>
+            <button
+              onClick={clearAllFilters}
+              className="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary-dark transition-colors shadow-md"
             >
-              Get Started <span aria-hidden="true">→</span>
-            </Link>
-          </motion.div>
-        </motion.div>
-      </section>
+              Reset Filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredProperties.map((property) => {
+              const priceType = property.priceType || property.price_type;
+              const isVerified = property.isVerified || property.verified;
+              const imageUrl = property.image || property.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800';
+
+              return (
+                <motion.div 
+                  key={property.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Link href={`/properties/${property.id}`} className="block group">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-md hover:shadow-2xl hover:scale-[1.01] transition-all duration-300 border border-slate-200/80 dark:border-slate-800 flex flex-col h-full">
+                      
+                      {/* Image Container */}
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        <Image 
+                          src={imageUrl} 
+                          alt={property.title || 'Property Image'} 
+                          fill 
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+                        
+                        {/* Top Badges */}
+                        <div className="absolute top-3 w-full px-3 flex justify-between items-start">
+                          {isVerified ? (
+                            <div className="bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                              <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                            </div>
+                          ) : <div />}
+                          
+                          <button 
+                            className="bg-white/90 dark:bg-slate-900/90 p-2 rounded-full transition-colors shadow-md"
+                            onClick={(e) => toggleFavorite(e, property.id)}
+                          >
+                            <Heart className={`w-4 h-4 ${favorites.includes(property.id) ? 'fill-red-500 text-red-500' : 'text-slate-400 hover:text-red-500'}`} />
+                          </button>
+                        </div>
+
+                        {/* Bottom Overlay Price */}
+                        <div className="absolute bottom-3 left-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl shadow-lg">
+                          <span className="font-extrabold text-lg text-primary">{formatPrice(property.price)}</span>
+                          {priceType === 'rent' && <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">/mo</span>}
+                        </div>
+                      </div>
+
+                      {/* Content Details */}
+                      <div className="p-5 flex flex-col flex-1 justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <h3 className="font-bold text-slate-900 dark:text-white text-base line-clamp-1 group-hover:text-primary transition-colors">
+                              {property.title}
+                            </h3>
+                            <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md text-xs font-bold shrink-0">
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <span>{property.rating?.toFixed(1) || '4.9'}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-slate-500 dark:text-slate-400 text-xs mb-4">
+                            <MapPin className="w-3.5 h-3.5 mr-1 shrink-0 text-primary" />
+                            <span className="truncate">{property.suburb ? `${property.suburb}, ${property.city}` : property.city || 'Harare, Zimbabwe'}</span>
+                          </div>
+                        </div>
+
+                        {/* Specs Footer */}
+                        <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-3.5 text-slate-600 dark:text-slate-400 text-xs">
+                          <div className="flex items-center gap-3">
+                            {property.bedrooms > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bed className="w-4 h-4 text-slate-400" /> <span>{property.bedrooms} Beds</span>
+                              </div>
+                            )}
+                            {property.bathrooms > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bath className="w-4 h-4 text-slate-400" /> <span>{property.bathrooms} Baths</span>
+                              </div>
+                            )}
+                            {property.parking > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Car className="w-4 h-4 text-slate-400" /> <span>{property.parking} Park</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {property.size > 0 && (
+                            <div className="flex items-center gap-1 font-medium">
+                              <Maximize className="w-3.5 h-3.5 text-slate-400" /> <span>{property.size}m²</span>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+      </div>
     </main>
   );
 }
