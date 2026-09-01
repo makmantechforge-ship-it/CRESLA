@@ -1,354 +1,482 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, SlidersHorizontal, Bed, Bath, Car, Heart, ShieldCheck, MapPin, X, Map } from 'lucide-react';
-import { properties as importedProperties } from '@/data/properties';
-import { getProperties } from '@/utils/supabase/queries';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { 
+  Grid, 
+  Map as MapIcon, 
+  SlidersHorizontal, 
+  ArrowUpDown, 
+  Building2, 
+  Sparkles,
+  Search,
+  RotateCcw
+} from 'lucide-react';
+import { PropertyCard } from '@/components/ui/PropertyCard';
+import { SkeletonCard } from '@/components/ui/SkeletonCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FilterSummary } from '@/components/ui/FilterSummary';
+import { FilterDrawer } from '@/components/ui/FilterDrawer';
+import { properties as mockProperties } from '@/data/properties';
+import { getProperties, getUserFavorites, addFavorite, removeFavorite } from '@/utils/supabase/queries';
+import { createClient } from '@/utils/supabase/client';
 
-import dynamic from 'next/dynamic';
+function PropertiesResultsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-const PropertyMap = dynamic(() => import('@/components/map/PropertyMap'), { 
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800">
-      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
-      <p className="text-slate-500 font-medium text-sm">Loading map...</p>
-    </div>
-  )
-});
-
-const formatPrice = (price: number) => {
-  return '$' + new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0,
-  }).format(price);
-};
-
-export default function PropertiesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [bedrooms, setBedrooms] = useState('Any');
-  const [showFilters, setShowFilters] = useState(false);
+  const [allProperties, setAllProperties] = useState<any[]>(mockProperties || []);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [allProperties, setAllProperties] = useState<any[]>(importedProperties || []);
-  const [userAuth, setUserAuth] = useState<any>(null);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'rating'>('newest');
+
+  // Filter States initialized from URL params
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [purpose, setPurpose] = useState(searchParams.get('purpose') || 'All');
+  const [city, setCity] = useState(searchParams.get('city') || 'All');
+  const [suburb, setSuburb] = useState(searchParams.get('suburb') || 'All');
+  const [type, setType] = useState(searchParams.get('type') || 'All');
+  const [bedrooms, setBedrooms] = useState(searchParams.get('bedrooms') || 'Any');
+  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
+  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+    searchParams.get('amenities') ? searchParams.get('amenities')!.split(',') : []
+  );
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { createClient } = await import('@/utils/supabase/client');
+    const init = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setUserAuth(user);
-        const { getUserFavorites } = await import('@/utils/supabase/queries');
-        const userFavs = await getUserFavorites(user.id);
-        setFavorites(userFavs.map(f => f.id));
+        setUser(user);
+        const favs = await getUserFavorites(user.id);
+        setFavorites(favs.map((f: any) => f.id));
       }
-    };
-    fetchUser();
-    
-    getProperties().then((dbProps) => {
+
+      const dbProps = await getProperties();
       if (dbProps && dbProps.length > 0) {
-        setAllProperties(dbProps.map((p) => ({
-          ...p,
-          priceType: p.price_type,
-          sizeUnit: p.size_unit,
-          petFriendly: p.pet_friendly,
-          isVerified: p.verified,
-          image: p.images?.[0],
-        })));
+        setAllProperties(dbProps);
       }
-    });
+      setLoading(false);
+    };
+
+    init();
   }, []);
 
-  const propertyTypes = ['All', 'House', 'Apartment', 'Townhouse', 'Estate'];
+  // Synchronize state with URL params when searchParams change
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+    setPurpose(searchParams.get('purpose') || 'All');
+    setCity(searchParams.get('city') || 'All');
+    setSuburb(searchParams.get('suburb') || 'All');
+    setType(searchParams.get('type') || 'All');
+    setBedrooms(searchParams.get('bedrooms') || 'Any');
+    setMinPrice(searchParams.get('minPrice') || '');
+    setMaxPrice(searchParams.get('maxPrice') || '');
+    setSelectedAmenities(
+      searchParams.get('amenities') ? searchParams.get('amenities')!.split(',') : []
+    );
+  }, [searchParams]);
 
-  const toggleFavorite = async (e: React.MouseEvent, id: string) => {
+  // Derived filter options from platform properties
+  const availableCities = useMemo(() => {
+    const set = new Set<string>();
+    allProperties.forEach((p) => { if (p.city) set.add(p.city); });
+    return ['All', ...Array.from(set).sort()];
+  }, [allProperties]);
+
+  const availableTypes = useMemo(() => {
+    const set = new Set<string>();
+    allProperties.forEach((p) => { if (p.type) set.add(p.type); });
+    return ['All', ...Array.from(set).sort()];
+  }, [allProperties]);
+
+  const availableAmenities = useMemo(() => {
+    const set = new Set<string>();
+    allProperties.forEach((p) => {
+      if (Array.isArray(p.amenities)) {
+        p.amenities.forEach((a: string) => set.add(a));
+      }
+    });
+    return Array.from(set).sort();
+  }, [allProperties]);
+
+  // Filtering Logic
+  const filteredProperties = useMemo(() => {
+    let result = allProperties.filter((property) => {
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = property.title?.toLowerCase().includes(q);
+        const matchesCity = property.city?.toLowerCase().includes(q);
+        const matchesSuburb = property.suburb?.toLowerCase().includes(q);
+        const matchesDesc = property.description?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesCity && !matchesSuburb && !matchesDesc) return false;
+      }
+
+      // Purpose
+      const pPurpose = property.priceType || property.price_type;
+      if (purpose !== 'All' && pPurpose?.toLowerCase() !== purpose.toLowerCase()) return false;
+
+      // City
+      if (city !== 'All' && property.city !== city) return false;
+
+      // Suburb
+      if (suburb !== 'All' && property.suburb !== suburb) return false;
+
+      // Type
+      if (type !== 'All' && property.type !== type) return false;
+
+      // Bedrooms
+      if (bedrooms !== 'Any') {
+        const bedsInt = parseInt(bedrooms);
+        if (property.bedrooms < bedsInt) return false;
+      }
+
+      // Min / Max Price
+      if (minPrice && property.price < parseFloat(minPrice)) return false;
+      if (maxPrice && property.price > parseFloat(maxPrice)) return false;
+
+      // Amenities
+      if (selectedAmenities.length > 0) {
+        const pAmenities = property.amenities || [];
+        const hasAll = selectedAmenities.every((a) => pAmenities.includes(a));
+        if (!hasAll) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting
+    if (sortBy === 'price_asc') {
+      result.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price_desc') {
+      result.sort((a, b) => b.price - a.price);
+    } else if (sortBy === 'rating') {
+      result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
+
+    return result;
+  }, [allProperties, searchQuery, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities, sortBy]);
+
+  // Active filters list for FilterSummary component
+  const activeFilters = useMemo(() => {
+    const items: { label: string; onRemove: () => void }[] = [];
+    if (searchQuery) items.push({ label: `"${searchQuery}"`, onRemove: () => setSearchQuery('') });
+    if (purpose !== 'All') items.push({ label: purpose === 'rent' ? 'For Rent' : purpose === 'sale' ? 'For Sale' : purpose, onRemove: () => setPurpose('All') });
+    if (city !== 'All') items.push({ label: city, onRemove: () => setCity('All') });
+    if (suburb !== 'All') items.push({ label: suburb, onRemove: () => setSuburb('All') });
+    if (type !== 'All') items.push({ label: type, onRemove: () => setType('All') });
+    if (bedrooms !== 'Any') items.push({ label: `${bedrooms}+ beds`, onRemove: () => setBedrooms('Any') });
+    if (minPrice) items.push({ label: `Min $${minPrice}`, onRemove: () => setMinPrice('') });
+    if (maxPrice) items.push({ label: `Max $${maxPrice}`, onRemove: () => setMaxPrice('') });
+    selectedAmenities.forEach((a) => {
+      items.push({
+        label: a,
+        onRemove: () => setSelectedAmenities((prev) => prev.filter((item) => item !== a)),
+      });
+    });
+    return items;
+  }, [searchQuery, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities]);
+
+  const handleClearAll = () => {
+    setSearchQuery('');
+    setPurpose('All');
+    setCity('All');
+    setSuburb('All');
+    setType('All');
+    setBedrooms('Any');
+    setMinPrice('');
+    setMaxPrice('');
+    setSelectedAmenities([]);
+    router.push('/properties');
+  };
+
+  const handleSaveToggle = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    if (!userAuth) {
-      alert("Please log in to save favorites.");
+    if (!user) {
+      alert('Please sign in to save properties.');
       return;
     }
-    
-    const isFavorited = favorites.includes(id);
-    const { addFavorite, removeFavorite } = await import('@/utils/supabase/queries');
-    
+
+    const isFav = favorites.includes(id);
     try {
-      if (isFavorited) {
-        await removeFavorite(userAuth.id, id);
-        setFavorites(prev => prev.filter(fId => fId !== id));
+      if (isFav) {
+        await removeFavorite(user.id, id);
+        setFavorites((prev) => prev.filter((fId) => fId !== id));
       } else {
-        await addFavorite(userAuth.id, id);
-        setFavorites(prev => [...prev, id]);
+        await addFavorite(user.id, id);
+        setFavorites((prev) => [...prev, id]);
       }
-    } catch (error) {
-      console.error("Failed to toggle favorite", error);
+    } catch (err) {
+      console.error('Failed to toggle favorite', err);
     }
-  };
-
-  const filteredProperties = useMemo(() => {
-    return allProperties.filter((prop: any) => {
-      const locationStr = `${prop.suburb || ''} ${prop.city || ''} ${prop.address || ''}`;
-      const matchesSearch = locationStr.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            (prop.title && prop.title.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesType = selectedType === 'All' || prop.type === selectedType;
-      const matchesMinPrice = minPrice === '' || prop.price >= parseInt(minPrice);
-      const matchesMaxPrice = maxPrice === '' || prop.price <= parseInt(maxPrice);
-      const matchesBeds = bedrooms === 'Any' || prop.bedrooms >= parseInt(bedrooms);
-
-      return matchesSearch && matchesType && matchesMinPrice && matchesMaxPrice && matchesBeds;
-    });
-  }, [searchTerm, selectedType, minPrice, maxPrice, bedrooms]);
-
-  const containerVariants: any = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants: any = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] mt-16 bg-slate-50 dark:bg-slate-900 overflow-hidden text-slate-800 dark:text-slate-100">
-      
-      {/* LEFT PANEL: Listings & Filters */}
-      <div className="flex-1 flex flex-col w-full lg:w-3/5 xl:w-1/2 h-full overflow-hidden relative z-10">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 pb-20 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* Search & Filter Header */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-4 md:p-6 z-20 sticky top-0">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4 tracking-tight">Find your perfect home</h1>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by location, neighborhood, or title..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-slate-400"
-                />
-              </div>
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all ${
-                  showFilters 
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
-                }`}
+        {/* CONTROL HEADER */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Homes for you</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+              {filteredProperties.length} {filteredProperties.length === 1 ? 'property matches' : 'properties match'} your preferences.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none cursor-pointer shadow-xs"
               >
-                <SlidersHorizontal className="w-5 h-5" />
-                <span>Filters</span>
-              </button>
+                <option value="newest">Sort: Newest First</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="rating">Top Rated</option>
+              </select>
+              <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             </div>
 
-            {/* Expandable Filters Panel */}
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                  animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
-                  exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Property Type</label>
-                      <select 
-                        value={selectedType}
-                        onChange={(e) => setSelectedType(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                      >
-                        {propertyTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                      </select>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Min Price</label>
-                      <input 
-                        type="number"
-                        placeholder="R 0"
-                        value={minPrice}
-                        onChange={(e) => setMinPrice(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Max Price</label>
-                      <input 
-                        type="number"
-                        placeholder="Any"
-                        value={maxPrice}
-                        onChange={(e) => setMaxPrice(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bedrooms</label>
-                      <select 
-                        value={bedrooms}
-                        onChange={(e) => setBedrooms(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                      >
-                        {['Any', '1', '2', '3', '4', '5'].map(num => (
-                          <option key={num} value={num}>{num === 'Any' ? 'Any' : `${num}+ Beds`}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end mt-4">
-                    <button 
-                      onClick={() => {
-                        setSearchTerm('');
-                        setSelectedType('All');
-                        setMinPrice('');
-                        setMaxPrice('');
-                        setBedrooms('Any');
-                      }}
-                      className="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                    >
-                      Clear all filters
-                    </button>
-                  </div>
-                </motion.div>
+            {/* Filter Drawer Toggle */}
+            <button
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-primary/50 transition-colors shadow-xs cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+              <span>Filters</span>
+              {activeFilters.length > 0 && (
+                <span className="bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {activeFilters.length}
+                </span>
               )}
-            </AnimatePresence>
+            </button>
+
+            {/* Map Toggle Button */}
+            <button
+              onClick={() => router.push('/map')}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-dark transition-colors shadow-sm cursor-pointer"
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Map View</span>
+            </button>
           </div>
         </div>
 
-        {/* Listings Grid */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6 custom-scrollbar">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-4 flex justify-between items-end">
-              <p className="text-slate-500 font-medium">
-                {filteredProperties.length} {filteredProperties.length === 1 ? 'property' : 'properties'} found
-              </p>
+        {/* ACTIVE FILTER SUMMARY STRIP */}
+        <FilterSummary filters={activeFilters} onClearAll={handleClearAll} />
+
+        {/* RESULTS GRID */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : filteredProperties.length === 0 ? (
+          <EmptyState
+            title="No matching homes found"
+            description="We couldn't find properties matching your exact criteria. Try broadening your location, adjusting budget, or clearing filters."
+            icon={<Building2 className="w-12 h-12 text-slate-300" />}
+            actions={[
+              { label: 'Clear All Filters', onClick: handleClearAll },
+              { label: 'Modify Search', onClick: () => setIsFilterDrawerOpen(true) },
+            ]}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProperties.map((property) => (
+              <PropertyCard
+                key={property.id}
+                property={property}
+                onSave={handleSaveToggle}
+                isSaved={favorites.includes(property.id)}
+              />
+            ))}
+          </div>
+        )}
+
+      </div>
+
+      {/* FILTER DRAWER SLIDE-OVER */}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+      >
+        <div className="space-y-6">
+          {/* Keyword Search */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Keyword Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Title, suburb, address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none text-slate-900 dark:text-white"
+              />
             </div>
+          </div>
 
-            {filteredProperties.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-10 h-10 text-slate-400" />
-                </div>
-                <h3 className="text-xl font-bold mb-2">No properties found</h3>
-                <p className="text-slate-500">Try adjusting your filters or search term to find what you're looking for.</p>
+          {/* Purpose */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Purpose</label>
+            <div className="flex gap-2">
+              {['All', 'rent', 'sale'].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPurpose(p)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold capitalize border transition-all cursor-pointer ${
+                    purpose === p
+                      ? 'bg-primary text-white border-primary shadow-xs'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {p === 'rent' ? 'For Rent' : p === 'sale' ? 'For Sale' : 'All'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* City */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">City / Region</label>
+            <select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none text-slate-900 dark:text-white cursor-pointer"
+            >
+              {availableCities.map((c) => (
+                <option key={c} value={c}>{c === 'All' ? 'All Cities' : c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Property Type */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Property Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none text-slate-900 dark:text-white cursor-pointer"
+            >
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Bedrooms */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Bedrooms</label>
+            <div className="flex gap-1.5">
+              {['Any', '1', '2', '3', '4'].map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setBedrooms(b)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    bedrooms === b
+                      ? 'bg-primary text-white border-primary shadow-xs'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {b === 'Any' ? 'Any' : `${b}+`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Price Range */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Min Price ($)</label>
+              <input
+                type="number"
+                placeholder="Min"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none text-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Max Price ($)</label>
+              <input
+                type="number"
+                placeholder="Max"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none text-slate-900 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Amenities */}
+          {availableAmenities.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Amenities</label>
+              <div className="flex flex-wrap gap-2">
+                {availableAmenities.map((a) => {
+                  const isSel = selectedAmenities.includes(a);
+                  return (
+                    <button
+                      key={a}
+                      onClick={() =>
+                        setSelectedAmenities((prev) =>
+                          prev.includes(a) ? prev.filter((item) => item !== a) : [...prev, a]
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                        isSel
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <motion.div 
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 gap-6"
-              >
-                {filteredProperties.map((property: any) => (
-                  <motion.div key={property.id} variants={itemVariants}>
-                    <Link href={`/properties/${property.id}`} className="block group">
-                      <div className="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-slate-100 dark:border-slate-700">
-                        
-                        {/* Image Section */}
-                        <div className="relative aspect-[4/3] w-full overflow-hidden">
-                          <Image
-                            src={(property.images && property.images[0]) || property.image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9'}
-                            alt={property.title}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
-                          
-                          <div className="absolute top-4 right-4 flex gap-2">
-                            <button 
-                              onClick={(e) => toggleFavorite(e, property.id)}
-                              className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors"
-                            >
-                              <Heart className={`w-5 h-5 ${favorites.includes(property.id) ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-                            </button>
-                          </div>
-                          
-                          {property.verified && (
-                            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              VERIFIED
-                            </div>
-                          )}
+            </div>
+          )}
 
-                          <div className="absolute bottom-4 left-4 right-4 text-white">
-                            <p className="text-2xl font-bold drop-shadow-md">
-                              {formatPrice(property.price)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Content Section */}
-                        <div className="p-5">
-                          <div className="mb-4">
-                            <h3 className="font-bold text-lg mb-1 truncate text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors">
-                              {property.title}
-                            </h3>
-                            <div className="flex items-center text-slate-500 text-sm">
-                              <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                              <span className="truncate">{property.suburb ? `${property.suburb}, ${property.city}` : property.location}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between py-4 border-t border-slate-100 dark:border-slate-700">
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                              <Bed className="w-4 h-4 text-primary" />
-                              <span className="font-semibold text-sm">{property.bedrooms} <span className="font-normal text-slate-400">Beds</span></span>
-                            </div>
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                              <Bath className="w-4 h-4 text-primary" />
-                              <span className="font-semibold text-sm">{property.bathrooms} <span className="font-normal text-slate-400">Baths</span></span>
-                            </div>
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                              <Car className="w-4 h-4 text-primary" />
-                              <span className="font-semibold text-sm">{property.parking} <span className="font-normal text-slate-400">Parking</span></span>
-                            </div>
-                          </div>
-                          
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
+          {/* Clear & Apply Actions */}
+          <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              onClick={handleClearAll}
+              className="flex-1 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+            >
+              Reset All
+            </button>
+            <button
+              onClick={() => setIsFilterDrawerOpen(false)}
+              className="flex-1 py-3 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-dark transition-colors shadow-sm"
+            >
+              Show {filteredProperties.length} Results
+            </button>
           </div>
         </div>
-      </div>
+      </FilterDrawer>
 
-      {/* RIGHT PANEL: Map (Hidden on mobile) */}
-      <div className="hidden lg:block lg:w-2/5 xl:w-1/2 h-full relative">
-        <PropertyMap />
-      </div>
+    </main>
+  );
+}
 
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: rgba(156, 163, 175, 0.3);
-          border-radius: 10px;
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: rgba(71, 85, 105, 0.4);
-        }
-      `}</style>
-    </div>
+export default function PropertiesResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <PropertiesResultsContent />
+    </Suspense>
   );
 }
