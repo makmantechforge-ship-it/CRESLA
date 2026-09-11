@@ -368,7 +368,7 @@ export default function PropertyDetailPage() {
                   </Link>
                 ) : (
                   <Link
-                    href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || ''}&property=${property.id}`}
+                    href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || 'cresla-concierge'}&property=${property.id}`}
                     className="w-full py-3.5 bg-primary text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-md"
                   >
                     <MessageSquare className="w-4 h-4" /> Message Owner
@@ -418,7 +418,7 @@ export default function PropertyDetailPage() {
           </Link>
         ) : (
           <Link
-            href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || ''}&property=${property.id}`}
+            href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || 'cresla-concierge'}&property=${property.id}`}
             className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5"
           >
             <MessageSquare className="w-4 h-4" /> Contact Owner

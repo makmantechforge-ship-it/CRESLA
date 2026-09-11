@@ -61,17 +61,27 @@ function MessagesContent() {
       
       setCurrentUser(user);
 
+      let effectiveContactId = toUserId;
+      let propData: any = null;
+
       // If inquiry about a property is present, fetch property details
       if (propertyId) {
         try {
-          const prop = await getPropertyById(propertyId);
-          if (prop) {
-            setInquiryProperty(prop);
-            setInputText(`Hi, I'm interested in "${prop.title}". Is it currently available for viewing?`);
+          propData = await getPropertyById(propertyId);
+          if (propData) {
+            setInquiryProperty(propData);
+            setInputText(`Hi, I'm interested in "${propData.title}". Is it currently available for viewing?`);
+            if (!effectiveContactId) {
+              effectiveContactId = propData.landlord_id || propData.profiles?.id || propData.landlord?.id;
+            }
           }
         } catch (err) {
           console.warn('Could not fetch inquiry property:', err);
         }
+      }
+
+      if (!effectiveContactId && propertyId) {
+        effectiveContactId = 'cresla-concierge';
       }
 
       // Fetch user's existing messages
@@ -124,30 +134,53 @@ function MessagesContent() {
         });
       }
 
-      // If 'to' user param was passed and not in convMap yet, fetch their profile to create a new thread
-      if (toUserId && toUserId !== user.id && !convMap.has(toUserId)) {
-        try {
-          const targetProfile = await getUserProfile(toUserId);
-          convMap.set(toUserId, {
-            id: toUserId,
-            contactName: targetProfile?.full_name || 'Property Owner',
-            phone: targetProfile?.phone || '',
-            role: targetProfile?.account_type === 'agent' ? 'Verified Agent' : 'Property Owner',
-            avatar: targetProfile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetProfile?.full_name || 'Owner')}&background=1034A6&color=fff`,
+      // If effectiveContactId is present and not in convMap yet, add it
+      if (effectiveContactId && effectiveContactId !== user.id && !convMap.has(effectiveContactId)) {
+        if (effectiveContactId === 'cresla-concierge') {
+          convMap.set('cresla-concierge', {
+            id: 'cresla-concierge',
+            contactName: 'CRESLA Concierge & Verified Agent',
+            phone: '+263 77 210 0200',
+            role: 'Verified Platform Agent',
+            avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
             online: true,
             unreadCount: 0,
             messages: []
           });
-        } catch (err) {
-          console.warn('Could not fetch target profile:', err);
+        } else {
+          try {
+            const targetProfile = await getUserProfile(effectiveContactId);
+            convMap.set(effectiveContactId, {
+              id: effectiveContactId,
+              contactName: targetProfile?.full_name || 'Property Owner',
+              phone: targetProfile?.phone || '',
+              role: targetProfile?.account_type === 'agent' ? 'Verified Agent' : 'Property Owner',
+              avatar: targetProfile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetProfile?.full_name || 'Owner')}&background=1034A6&color=fff`,
+              online: true,
+              unreadCount: 0,
+              messages: []
+            });
+          } catch (err) {
+            console.warn('Could not fetch target profile:', err);
+            convMap.set(effectiveContactId, {
+              id: effectiveContactId,
+              contactName: 'Property Owner',
+              phone: '',
+              role: 'Landlord',
+              avatar: `https://ui-avatars.com/api/?name=Owner&background=1034A6&color=fff`,
+              online: true,
+              unreadCount: 0,
+              messages: []
+            });
+          }
         }
       }
 
       const convList = Array.from(convMap.values());
       setConversations(convList);
 
-      if (toUserId && convMap.has(toUserId)) {
-        setActiveChatId(toUserId);
+      if (effectiveContactId && convMap.has(effectiveContactId)) {
+        setActiveChatId(effectiveContactId);
         setIsMobileListVisible(false);
       } else if (convList.length > 0 && !activeChatId) {
         setActiveChatId(convList[0].id);
@@ -277,6 +310,28 @@ function MessagesContent() {
       return [target, ...others];
     });
 
+    if (activeChatId === 'cresla-concierge') {
+      setTimeout(() => {
+        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const autoReply = {
+          id: `reply-${Date.now()}`,
+          senderId: 'cresla-concierge',
+          text: `Hello! Thank you for inquiring about ${inquiryProperty ? `"${inquiryProperty.title}"` : 'this property'}. Our leasing team has received your message and an agent will follow up with you shortly to schedule a viewing.`,
+          timestamp: replyTime,
+          isRead: true
+        };
+        setConversations(prev => {
+          const idx = prev.findIndex(c => c.id === 'cresla-concierge');
+          if (idx === -1) return prev;
+          const target = { ...prev[idx] };
+          target.messages = [...target.messages, autoReply];
+          const others = prev.filter(c => c.id !== 'cresla-concierge');
+          return [target, ...others];
+        });
+      }, 1000);
+      return;
+    }
+
     try {
       await sendMessage({
         senderId: currentUser.id,
@@ -312,7 +367,7 @@ function MessagesContent() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] bg-slate-50 flex flex-col items-center justify-center">
+      <div className="pt-16 h-screen bg-slate-50 flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
         <p className="text-xs text-slate-500 font-medium">Opening secure message portal...</p>
       </div>
@@ -320,7 +375,7 @@ function MessagesContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] bg-slate-50 flex overflow-hidden">
+    <div className="pt-16 h-screen bg-slate-50 flex overflow-hidden">
       
       {/* LEFT PANEL: Conversation List */}
       <div className={`
@@ -601,7 +656,7 @@ function MessagesContent() {
 export default function MessagesPage() {
   return (
     <Suspense fallback={
-      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
+      <div className="pt-16 h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     }>
