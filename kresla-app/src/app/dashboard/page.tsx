@@ -19,10 +19,13 @@ import {
   Menu,
   X,
   LogOut,
-  Loader2
+  Loader2,
+  Edit3,
+  ExternalLink
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const chartData = [
   { day: 'Mon', height: '40%' },
@@ -46,6 +49,7 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
+  const [userPropertiesList, setUserPropertiesList] = useState<any[]>([]);
   const [statsData, setStatsData] = useState({
     totalProperties: 0,
     totalViews: 0,
@@ -73,9 +77,10 @@ export default function DashboardPage() {
         // Fetch user's properties
         const { data: properties } = await supabase
           .from('properties')
-          .select('id, views, title')
+          .select('id, views, title, price, price_type, city, suburb, images, available')
           .eq('landlord_id', user.id);
 
+        setUserPropertiesList(properties || []);
         const propertyIds = properties?.map((p: any) => p.id) || [];
         const totalProperties = propertyIds.length;
         const totalViews = properties?.reduce((sum: number, p: any) => sum + (p.views || 0), 0) || 0;
@@ -405,13 +410,84 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* My Published Listings */}
+            <div className="bg-white dark:bg-slate-900 p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">My Published Listings</h2>
+                  <p className="text-sm text-slate-500">Manage, edit, or remove your active properties</p>
+                </div>
+                <Link
+                  href="/upload"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary-dark transition-colors self-start sm:self-auto"
+                >
+                  <Plus size={14} /> Add Property
+                </Link>
+              </div>
+
+              {userPropertiesList.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                  <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">You haven&apos;t listed any properties yet</p>
+                  <p className="text-xs text-slate-400 mt-1">Publish your first property to start receiving tenant and buyer inquiries.</p>
+                  <Link
+                    href="/upload"
+                    className="inline-block mt-4 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors"
+                  >
+                    Post a Listing Now
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userPropertiesList.map((prop) => (
+                    <div
+                      key={prop.id}
+                      className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-4 items-center justify-between hover:shadow-md transition-shadow bg-slate-50/50 dark:bg-slate-800/50"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <img
+                          src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=300'}
+                          alt={prop.title}
+                          className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{prop.title}</h4>
+                          <p className="text-xs text-slate-500">{prop.suburb ? `${prop.suburb}, ` : ''}{prop.city}</p>
+                          <p className="text-xs font-bold text-primary mt-1">${prop.price} {prop.price_type === 'rent' ? '/mo' : ''}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link
+                          href={`/properties/${prop.id}`}
+                          className="p-2 text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors"
+                          title="View Listing"
+                        >
+                          <ExternalLink size={16} />
+                        </Link>
+                        <Link
+                          href={`/properties/${prop.id}/edit`}
+                          className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/50 transition-colors flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Edit3 size={13} /> Edit
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Quick Actions */}
             <div className="bg-gradient-to-r from-primary to-blue-600 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-primary/20">
               <div>
                 <h2 className="text-2xl font-bold mb-2">Ready to expand your portfolio?</h2>
-                <p className="text-blue-100 max-w-md">Reach thousands of potential tenants by listing your new property on CRESLA today.</p>
+                <p className="text-blue-100 max-w-md">Reach thousands of potential tenants and buyers across Zimbabwe by listing your new property on CRESLA.</p>
               </div>
-              <button className="shrink-0 flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300">
+              <button 
+                onClick={() => router.push('/upload')}
+                className="shrink-0 flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer"
+              >
                 <Plus size={20} />
                 Post New Property
               </button>

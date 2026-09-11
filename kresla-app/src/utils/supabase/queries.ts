@@ -229,3 +229,159 @@ export async function upgradeUserToLandlord(userId: string) {
     console.error('Error upgrading account type:', error);
   }
 }
+
+// PROPERTY CRUD
+export async function createProperty(propertyData: any): Promise<DbProperty> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('properties')
+    .insert(propertyData)
+    .select('*, profiles(id, full_name, avatar_url, verified, rating, properties_count, response_time)')
+    .single();
+
+  if (error) {
+    console.error('Error creating property:', error);
+    throw error;
+  }
+
+  if (propertyData.landlord_id) {
+    await upgradeUserToLandlord(propertyData.landlord_id);
+  }
+
+  return data as DbProperty;
+}
+
+export async function updateProperty(id: string, updates: any): Promise<DbProperty> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('properties')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*, profiles(id, full_name, avatar_url, verified, rating, properties_count, response_time)')
+    .single();
+
+  if (error) {
+    console.error('Error updating property:', error);
+    throw error;
+  }
+
+  return data as DbProperty;
+}
+
+export async function deleteProperty(id: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('properties')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting property:', error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function getUserProperties(userId: string): Promise<DbProperty[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*, profiles(id, full_name, avatar_url, verified, rating, properties_count, response_time)')
+    .eq('landlord_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching user properties:', error);
+    return [];
+  }
+
+  return (data || []) as DbProperty[];
+}
+
+export async function getUserPropertyCount(userId: string): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from('properties')
+    .select('id', { count: 'exact', head: true })
+    .eq('landlord_id', userId);
+
+  if (error) {
+    console.error('Error getting user property count:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// MESSAGING
+export type DbMessage = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  property_id?: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  };
+  receiver?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  };
+  property?: {
+    id: string;
+    title: string;
+    price: number;
+    images: string[];
+  };
+};
+
+export async function sendMessage(data: {
+  senderId: string;
+  receiverId: string;
+  content: string;
+  propertyId?: string;
+}): Promise<DbMessage> {
+  const supabase = createClient();
+  const payload: any = {
+    sender_id: data.senderId,
+    receiver_id: data.receiverId,
+    content: data.content,
+  };
+  if (data.propertyId) {
+    payload.property_id = data.propertyId;
+  }
+
+  const { data: newMsg, error } = await supabase
+    .from('messages')
+    .insert(payload)
+    .select('*, sender:profiles!sender_id(id, full_name, avatar_url), receiver:profiles!receiver_id(id, full_name, avatar_url)')
+    .single();
+
+  if (error) {
+    console.error('Error sending message:', error);
+    throw error;
+  }
+
+  return newMsg as DbMessage;
+}
+
+export async function markMessagesAsRead(senderId: string, receiverId: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_read: true })
+    .eq('sender_id', senderId)
+    .eq('receiver_id', receiverId)
+    .eq('is_read', false);
+
+  if (error) {
+    console.error('Error marking messages read:', error);
+  }
+}
+

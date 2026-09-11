@@ -359,19 +359,28 @@ export default function PropertyDetailPage() {
 
               {/* Primary Conversion CTAs */}
               <div className="space-y-3 pt-2">
-                <Link
-                  href={`/messages`}
-                  className="w-full py-3.5 bg-primary text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-md"
-                >
-                  <MessageSquare className="w-4 h-4" /> Message Owner
-                </Link>
+                {user && (property.landlord_id === user.id || property.profiles?.id === user.id || property.landlord?.id === user.id) ? (
+                  <Link
+                    href={`/properties/${property.id}/edit`}
+                    className="w-full py-3.5 bg-amber-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-amber-700 transition-all shadow-md"
+                  >
+                    <Sparkles className="w-4 h-4" /> Edit Your Listing
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || ''}&property=${property.id}`}
+                    className="w-full py-3.5 bg-primary text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-dark transition-all shadow-md"
+                  >
+                    <MessageSquare className="w-4 h-4" /> Message Owner
+                  </Link>
+                )}
 
-                <button
-                  onClick={() => alert(`Contact phone number: +263 77 ${Math.floor(100000 + Math.random() * 900000)}`)}
-                  className="w-full py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                <a
+                  href={`tel:${landlord.phone || '+263772000111'}`}
+                  className="w-full py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 >
-                  <Phone className="w-4 h-4" /> Call Agent
-                </button>
+                  <Phone className="w-4 h-4" /> Call {landlord.phone || 'Agent (+263)'}
+                </a>
               </div>
 
             </div>
@@ -400,12 +409,21 @@ export default function PropertyDetailPage() {
           {priceType === 'rent' && <span className="text-xs text-slate-500 ml-1">/mo</span>}
         </div>
 
-        <Link
-          href="/messages"
-          className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5"
-        >
-          <MessageSquare className="w-4 h-4" /> Contact Agent
-        </Link>
+        {user && (property.landlord_id === user.id || property.profiles?.id === user.id || property.landlord?.id === user.id) ? (
+          <Link
+            href={`/properties/${property.id}/edit`}
+            className="px-6 py-2.5 bg-amber-600 text-white rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5"
+          >
+            <Sparkles className="w-4 h-4" /> Edit Listing
+          </Link>
+        ) : (
+          <Link
+            href={`/messages?to=${property.landlord_id || property.profiles?.id || property.landlord?.id || ''}&property=${property.id}`}
+            className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5"
+          >
+            <MessageSquare className="w-4 h-4" /> Contact Owner
+          </Link>
+        )}
       </div>
     </main>
   );
