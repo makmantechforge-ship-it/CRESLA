@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { properties as mockProperties } from '@/data/properties';
 import { getProperties } from '@/utils/supabase/queries';
+import { createClient } from '@/utils/supabase/client';
 
 const formatPrice = (price: number) => {
   return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(price);
@@ -78,6 +79,19 @@ export default function HomePage() {
   const [totalProps, setTotalProps] = useState(0);
 
   useEffect(() => {
+    // Exchange OAuth code if returned to home page
+    if (typeof window !== 'undefined' && window.location.search.includes('code=')) {
+      const supabase = createClient();
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code).then(() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          router.refresh();
+        });
+      }
+    }
+
     const saved = localStorage.getItem('cresla_recent_search');
     if (saved) setRecentSearch(saved);
 
