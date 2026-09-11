@@ -21,7 +21,9 @@ import {
   LogOut,
   Loader2,
   Edit3,
-  ExternalLink
+  ExternalLink,
+  Sparkles,
+  CheckCircle
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -38,11 +40,11 @@ const chartData = [
 ];
 
 const navItems = [
-  { label: 'Overview', icon: LayoutDashboard, active: true },
-  { label: 'Properties', icon: Building2 },
-  { label: 'Messages', icon: MessageSquare },
-  { label: 'Analytics', icon: BarChart3 },
-  { label: 'Settings', icon: Settings },
+  { label: 'Overview', icon: LayoutDashboard, active: true, href: '/dashboard' },
+  { label: 'Properties', icon: Building2, href: '/properties' },
+  { label: 'Messages', icon: MessageSquare, href: '/messages' },
+  { label: 'Analytics', icon: BarChart3, href: '/dashboard' },
+  { label: 'Settings', icon: Settings, href: '/profile' },
 ];
 
 export default function DashboardPage() {
@@ -50,6 +52,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [userPropertiesList, setUserPropertiesList] = useState<any[]>([]);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [promoting, setPromoting] = useState(false);
+  const [promoteSuccess, setPromoteSuccess] = useState(false);
   const [statsData, setStatsData] = useState({
     totalProperties: 0,
     totalViews: 0,
@@ -233,7 +240,16 @@ export default function DashboardPage() {
             {navItems.map((item) => (
               <button 
                 key={item.label}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                onClick={() => {
+                  if (item.label === 'Properties') {
+                    const el = document.getElementById('my-listings');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    else router.push('/properties');
+                  } else if (item.href) {
+                    router.push(item.href);
+                  }
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer ${
                   item.active 
                     ? 'bg-primary/10 text-primary font-medium' 
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -290,7 +306,10 @@ export default function DashboardPage() {
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
             </button>
-            <button className="flex items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all hover:shadow-lg hover:shadow-primary/30">
+            <button 
+              onClick={() => router.push('/upload')}
+              className="flex items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all hover:shadow-lg hover:shadow-primary/30 cursor-pointer"
+            >
               <Plus size={18} />
               <span className="hidden sm:inline">New Listing</span>
             </button>
@@ -308,11 +327,27 @@ export default function DashboardPage() {
                 <p className="text-slate-500 dark:text-slate-400">Here's what's happening with your properties today.</p>
               </div>
               <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:border-primary/50 transition-colors shadow-sm">
+                <button 
+                  onClick={() => {
+                    const el = document.getElementById('my-listings');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                      setShowManageModal(true);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:border-primary/50 transition-colors shadow-sm cursor-pointer"
+                >
                   <Settings size={16} />
                   Manage
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-primary/30 transition-all hover:scale-[1.02]">
+                <button 
+                  onClick={() => {
+                    setPromoteSuccess(false);
+                    setShowPromoteModal(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-primary/30 transition-all hover:scale-[1.02] cursor-pointer"
+                >
                   <Megaphone size={16} />
                   Promote
                 </button>
@@ -411,7 +446,7 @@ export default function DashboardPage() {
             </div>
 
             {/* My Published Listings */}
-            <div className="bg-white dark:bg-slate-900 p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+            <div id="my-listings" className="bg-white dark:bg-slate-900 p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6 scroll-mt-24">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold">My Published Listings</h2>
@@ -496,6 +531,214 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Promote Modal */}
+      <AnimatePresence>
+        {showPromoteModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative"
+            >
+              <button
+                onClick={() => setShowPromoteModal(false)}
+                className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+                  <Megaphone size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Promote Your Listings</h3>
+                  <p className="text-xs text-slate-500">Reach 5x more verified tenants and buyers in Zimbabwe</p>
+                </div>
+              </div>
+
+              {promoteSuccess ? (
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle size={32} />
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-900 dark:text-white">Listing Successfully Promoted!</h4>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Your property is now featured on the CRESLA homepage and prioritized at the top of search results.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowPromoteModal(false);
+                      setPromoteSuccess(false);
+                    }}
+                    className="px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : userPropertiesList.length === 0 ? (
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                    <Building2 size={28} />
+                  </div>
+                  <h4 className="text-base font-bold text-slate-800 dark:text-white">No active properties to promote</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    You haven&apos;t listed any properties yet. Post your first house or apartment to start promoting it to buyers and tenants.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowPromoteModal(false);
+                      router.push('/upload');
+                    }}
+                    className="px-6 py-3 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors inline-flex items-center gap-2 cursor-pointer shadow-md"
+                  >
+                    <Plus size={16} /> Post a Property Now
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
+                      Select Property to Promote
+                    </label>
+                    <select
+                      value={selectedPropertyId || userPropertiesList[0]?.id}
+                      onChange={(e) => setSelectedPropertyId(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      {userPropertiesList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} (${p.price}{p.price_type === 'rent' ? '/mo' : ''} - {p.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                      Promotion Package
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-4 rounded-2xl border-2 border-primary bg-primary/5 cursor-pointer">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">Featured Boost</span>
+                          <span className="text-xs font-bold text-primary">Free Trial</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">7 Days Homepage & Search Highlight</p>
+                      </div>
+                      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 opacity-80 cursor-pointer">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">Spotlight Pro</span>
+                          <span className="text-xs font-bold text-slate-500">$25/mo</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">30 Days Top Placement & Verified Badge</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={promoting}
+                    onClick={async () => {
+                      const targetId = selectedPropertyId || userPropertiesList[0]?.id;
+                      if (!targetId) return;
+                      setPromoting(true);
+                      try {
+                        await supabase.from('properties').update({ featured: true }).eq('id', targetId);
+                        setPromoteSuccess(true);
+                      } catch (err) {
+                        console.error('Error promoting property:', err);
+                      } finally {
+                        setPromoting(false);
+                      }
+                    }}
+                    className="w-full py-3.5 bg-primary text-white rounded-2xl font-bold text-xs hover:bg-primary-dark transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  >
+                    {promoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {promoting ? 'Activating Promotion...' : 'Promote Listing Now'}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Manage Modal */}
+      <AnimatePresence>
+        {showManageModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 relative"
+            >
+              <button
+                onClick={() => setShowManageModal(false)}
+                className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+                  <Settings size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Quick Actions</h3>
+                  <p className="text-xs text-slate-500">Manage your portfolio and landlord account</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowManageModal(false);
+                    router.push('/upload');
+                  }}
+                  className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-between text-left cursor-pointer"
+                >
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Post New Property</h4>
+                    <p className="text-[11px] text-slate-500">List an apartment, house, or commercial place</p>
+                  </div>
+                  <Plus className="w-5 h-5 text-primary" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowManageModal(false);
+                    router.push('/profile');
+                  }}
+                  className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-between text-left cursor-pointer"
+                >
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">Edit Profile & Contact Phone</h4>
+                    <p className="text-[11px] text-slate-500">Update your phone number for tenant calls</p>
+                  </div>
+                  <Settings className="w-5 h-5 text-primary" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowManageModal(false);
+                    router.push('/messages');
+                  }}
+                  className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-between text-left cursor-pointer"
+                >
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">In-App Inquiries & Messages</h4>
+                    <p className="text-[11px] text-slate-500">Chat directly with interested tenants</p>
+                  </div>
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
