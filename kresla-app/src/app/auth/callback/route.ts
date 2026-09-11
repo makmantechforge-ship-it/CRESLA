@@ -9,8 +9,13 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = await cookies();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl = 
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 
+      'https://udfzxkxcmoinbetuzfag.supabase.co';
+
+    const supabaseAnonKey = 
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkZnp4a3hjbW9pbmJldHV6ZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjI5ODEsImV4cCI6MjEwMTUzODk4MX0.QZX7xPEF941Lbp4aAVUZyA7hna-CjXzkXPgIrjFdGVA';
 
     if (supabaseUrl && supabaseAnonKey) {
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {

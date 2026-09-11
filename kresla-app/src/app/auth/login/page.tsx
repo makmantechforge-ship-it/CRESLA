@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,12 +23,16 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
       if (signInError) {
-        setError(signInError.message);
+        if (signInError.message.includes('fetch') || signInError.message.includes('ENOTFOUND')) {
+          setError('Cannot connect to Supabase database. Please verify your Supabase project is active/unpaused.');
+        } else {
+          setError(signInError.message);
+        }
         setLoading(false);
         return;
       }
@@ -35,21 +40,41 @@ export default function LoginPage() {
       router.push('/');
       router.refresh();
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      console.error('Login error:', err);
+      setError(err.message || 'An unexpected error occurred during login.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    const supabase = createClient();
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cresla.onrender.com';
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${origin}/`,
-      },
-    });
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const supabase = createClient();
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cresla.onrender.com';
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (oauthError) {
+        if (oauthError.message.includes('provider is not enabled') || oauthError.message.includes('Unsupported provider')) {
+          setError('Google Sign-In is not enabled yet in your Supabase Dashboard. Please enable Google in Authentication -> Providers, or log in with Email & Password.');
+        } else {
+          setError(oauthError.message);
+        }
+      } else if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      console.error('Google OAuth error:', err);
+      setError(err.message || 'Google authentication failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -89,14 +114,17 @@ export default function LoginPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-400">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              {error}
+            <div className="flex items-start gap-3 rounded-2xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 text-xs text-red-700 dark:text-red-300 leading-relaxed shadow-xs">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600 mt-0.5" />
+              <div>
+                <strong className="font-bold block mb-0.5">Notice:</strong>
+                {error}
+              </div>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5 mt-10">
+          <form onSubmit={handleSubmit} className="space-y-5 mt-8">
             {/* Email */}
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -151,15 +179,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-primary to-blue-700 hover:to-blue-600 text-white font-semibold rounded-2xl shadow-lg shadow-primary/30 hover:shadow-primary/40 transform hover:-translate-y-0.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-2xl text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Signing in...
                 </>
               ) : (
@@ -173,18 +200,22 @@ export default function LoginPage() {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white dark:bg-slate-900 text-slate-500">Or continue with</span>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-4 bg-white dark:bg-slate-900 text-slate-400">Or continue with</span>
             </div>
           </div>
 
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-4">
-            <button 
-              onClick={handleGoogleLogin}
-              className="flex items-center justify-center py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 text-sm font-medium text-slate-700 dark:text-slate-300 hover:scale-[1.02]"
-            >
-              <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+          {/* Google Sign-in */}
+          <button 
+            type="button"
+            disabled={googleLoading}
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-all text-xs font-bold text-slate-700 dark:text-slate-200 gap-2.5 cursor-pointer disabled:opacity-60"
+          >
+            {googleLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+            ) : (
+              <svg className="h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -198,24 +229,18 @@ export default function LoginPage() {
                   fill="#FBBC05"
                 />
                 <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   fill="#EA4335"
                 />
               </svg>
-              Google
-            </button>
-            <button className="flex items-center justify-center py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 text-sm font-medium text-slate-700 dark:text-slate-300 hover:scale-[1.02]">
-              <svg className="h-5 w-5 mr-2 text-black dark:text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.68.727-1.35 2.156-1.142 3.507 1.35.104 2.585-.48 3.429-1.495z" />
-              </svg>
-              Apple
-            </button>
-          </div>
+            )}
+            <span>{googleLoading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
+          </button>
 
           {/* Footer Link */}
-          <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8">
+          <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-8">
             Don&apos;t have an account?{' '}
-            <Link href="/auth/register" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+            <Link href="/auth/register" className="font-bold text-primary hover:underline">
               Sign up
             </Link>
           </p>
