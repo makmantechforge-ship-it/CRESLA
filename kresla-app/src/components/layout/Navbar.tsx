@@ -1,24 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, X, Heart, User, Search, LogOut } from 'lucide-react';
+import { 
+  Menu, X, Search, Plus, Compass, ShoppingCart, 
+  HelpCircle, User as UserIcon, LogOut, LayoutDashboard 
+} from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export default function Navbar() {
   const router = useRouter();
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -29,146 +25,156 @@ export default function Navbar() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
-    setUserMenuOpen(false);
+    setMenuOpen(false);
     router.push('/');
     router.refresh();
   };
 
-  const navLinks = [
-    { name: 'Explore', href: '/' },
-    { name: 'Buy', href: '/properties?purpose=sale' },
-    { name: 'Rent', href: '/properties?purpose=rent' },
-    { name: 'Commercial', href: '/properties?purpose=commercial' },
-    { name: 'Map', href: '/map' },
-  ];
+  const handleHowItWorks = () => {
+    setMenuOpen(false);
+    const el = document.getElementById('how-it-works');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      router.push('/#how-it-works');
+    }
+  };
 
   return (
-    <header
-      className={`fixed top-0 w-full h-16 z-50 transition-all duration-300 flex items-center ${
-        scrolled
-          ? 'bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-sm'
-          : 'bg-transparent'
-      }`}
-    >
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-full">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-base">
-              C
-            </div>
-            <span className="hidden md:block font-bold text-lg text-slate-900 tracking-tight">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-[#0B3B95] z-50 shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+        
+        {/* Brand Logo & Tagline */}
+        <Link href="/" className="flex items-center gap-3 sm:gap-4 group">
+          <div className="flex flex-col">
+            <span className="font-extrabold text-2xl tracking-tight text-white leading-none">
               CRESLA
             </span>
+            <span className="text-[11px] sm:text-xs text-blue-100/90 italic font-medium tracking-wide mt-1">
+              A place for everyone!
+            </span>
+          </div>
+        </Link>
+
+        {/* Right Controls: Search Icon & Hamburger Menu */}
+        <div className="relative flex items-center gap-3 sm:gap-4" ref={menuRef}>
+          <Link
+            href="/properties"
+            className="p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            title="Search Properties"
+          >
+            <Search className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
           </Link>
 
-          {/* Desktop Center Links */}
-          <nav className="hidden md:flex items-center space-x-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className="text-sm font-medium text-slate-600 hover:text-primary transition-colors"
-              >
-                {link.name}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Desktop Right Actions */}
-          <div className="hidden md:flex items-center space-x-5 flex-shrink-0">
-            {user && (
-              <Link href="/favorites" className="text-slate-600 hover:text-primary transition-colors">
-                <Heart className="w-5 h-5" />
-              </Link>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            aria-label="Toggle Navigation Menu"
+          >
+            {menuOpen ? (
+              <X className="w-6 h-6 stroke-[2.4]" />
+            ) : (
+              <Menu className="w-6 h-6 stroke-[2.4]" />
             )}
-            
-            {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-primary font-semibold text-sm hover:bg-slate-200 transition-colors"
+          </button>
+
+          {/* Floating Popup Menu matching reference design */}
+          {menuOpen && (
+            <div className="absolute right-0 top-12 mt-2 w-64 sm:w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 py-3 px-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="space-y-1">
+                {/* 1. Post a Property */}
+                <Link
+                  href="/upload"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors group"
                 >
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
+                  <Plus className="w-4 h-4 text-[#0B3B95] stroke-[2.8]" />
+                  <span>Post a Property</span>
+                </Link>
+
+                {/* 2. Explore */}
+                <Link
+                  href="/properties"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors"
+                >
+                  <Compass className="w-4 h-4 text-[#0B3B95] stroke-[2.2]" />
+                  <span>Explore</span>
+                </Link>
+
+                {/* 3. Buy Properties */}
+                <Link
+                  href="/properties?purpose=sale"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors"
+                >
+                  <ShoppingCart className="w-4 h-4 text-[#0B3B95] stroke-[2.2]" />
+                  <span>Buy Properties</span>
+                </Link>
+
+                {/* 4. How it Works */}
+                <button
+                  onClick={handleHowItWorks}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors text-left cursor-pointer"
+                >
+                  <HelpCircle className="w-4 h-4 text-[#0B3B95] stroke-[2.2]" />
+                  <span>How it Works</span>
                 </button>
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-lg border border-slate-100 py-1 z-50">
-                    <Link href="/profile" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Profile</Link>
-                    <Link href="/dashboard" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Dashboard</Link>
-                    <Link href="/favorites" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Saved</Link>
-                    <Link href="/upload" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">List Property</Link>
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Sign Out</button>
-                  </div>
+
+                <div className="my-1.5 border-t border-slate-100"></div>
+
+                {/* 5. Sign In / Register / Account */}
+                {user ? (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-[#0B3B95] stroke-[2.2]" />
+                      <span>My Dashboard</span>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-600 hover:bg-red-50 text-sm font-semibold transition-colors text-left cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 stroke-[2.2]" />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/auth/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-800 hover:bg-blue-50/70 hover:text-[#0B3B95] text-sm font-semibold transition-colors"
+                  >
+                    <UserIcon className="w-4 h-4 text-[#0B3B95] stroke-[2.2]" />
+                    <span>Sign In / Register</span>
+                  </Link>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center space-x-4">
-                <Link href="/auth/login" className="text-sm font-medium text-slate-600 hover:text-primary transition-colors">
-                  Sign In
-                </Link>
-                <Link href="/auth/register" className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-full hover:bg-primary/90 transition-colors">
-                  Get Started
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Right Actions */}
-          <div className="flex md:hidden items-center space-x-4">
-            <Link href="/search" className="text-slate-600">
-              <Search className="w-5 h-5" />
-            </Link>
-            {user && (
-              <Link href="/favorites" className="text-slate-600">
-                <Heart className="w-5 h-5" />
-              </Link>
-            )}
-            <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600">
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 bg-white z-50 flex flex-col">
-          <div className="flex justify-between items-center h-16 px-4 border-b border-slate-100">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-base">C</div>
-            <button onClick={() => setMobileMenuOpen(false)} className="text-slate-600">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-            <nav className="flex flex-col space-y-4">
-              {navLinks.map((link) => (
-                <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-slate-900">
-                  {link.name}
-                </Link>
-              ))}
-            </nav>
-            <div className="pt-6 border-t border-slate-100 flex flex-col space-y-4">
-              {user ? (
-                <>
-                  <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="text-base text-slate-600">Profile</Link>
-                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-base text-slate-600">Dashboard</Link>
-                  <Link href="/upload" onClick={() => setMobileMenuOpen(false)} className="text-base text-slate-600">List Property</Link>
-                  <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="text-left text-base text-red-600">Sign Out</button>
-                </>
-              ) : (
-                <>
-                  <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-slate-900">Sign In</Link>
-                  <Link href="/auth/register" onClick={() => setMobileMenuOpen(false)} className="text-center bg-primary text-white px-4 py-3 rounded-xl font-medium">Get Started</Link>
-                </>
-              )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+
+      </div>
     </header>
   );
 }
