@@ -426,7 +426,7 @@ export default function HomePage() {
           
           {/* Card 1: Homes */}
           <Link
-            href="/properties?type=House"
+            href="/properties?category=Homes"
             className="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-blue-400/50 transition-all flex flex-col justify-between"
           >
             <div className="space-y-1 mb-4">
@@ -448,7 +448,7 @@ export default function HomePage() {
 
           {/* Card 2: Stays */}
           <Link
-            href="/properties?type=Lodge"
+            href="/properties?category=Stays"
             className="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-blue-400/50 transition-all flex flex-col justify-between"
           >
             <div className="space-y-1 mb-4">
@@ -470,7 +470,7 @@ export default function HomePage() {
 
           {/* Card 3: Business */}
           <Link
-            href="/properties?purpose=commercial"
+            href="/properties?category=Business"
             className="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-blue-400/50 transition-all flex flex-col justify-between"
           >
             <div className="space-y-1 mb-4">
@@ -492,7 +492,7 @@ export default function HomePage() {
 
           {/* Card 4: Lands */}
           <Link
-            href="/properties?type=Land"
+            href="/properties?category=Lands"
             className="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-blue-400/50 transition-all flex flex-col justify-between"
           >
             <div className="space-y-1 mb-4">
@@ -514,7 +514,7 @@ export default function HomePage() {
 
           {/* Card 5: Events & Special Places */}
           <Link
-            href="/properties?type=Venue"
+            href="/properties?category=Events"
             className="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-blue-400/50 transition-all flex flex-col justify-between"
           >
             <div className="space-y-1 mb-4">

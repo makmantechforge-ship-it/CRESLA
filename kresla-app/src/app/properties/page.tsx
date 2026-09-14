@@ -35,6 +35,7 @@ function PropertiesResultsContent() {
 
   // Filter States initialized from URL params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [category, setCategory] = useState(searchParams.get('category') || 'All');
   const [purpose, setPurpose] = useState(searchParams.get('purpose') || 'All');
   const [city, setCity] = useState(searchParams.get('city') || 'All');
   const [suburb, setSuburb] = useState(searchParams.get('suburb') || 'All');
@@ -57,9 +58,15 @@ function PropertiesResultsContent() {
       }
 
       const dbProps = await getProperties();
-      if (dbProps && dbProps.length > 0) {
-        setAllProperties(dbProps);
-      }
+      // Combine DB properties with mock/catalog properties (deduplicating by ID)
+      const combined = [...(dbProps || [])];
+      const dbIds = new Set(combined.map((p: any) => p.id));
+      mockProperties.forEach((p: any) => {
+        if (!dbIds.has(p.id)) {
+          combined.push(p);
+        }
+      });
+      setAllProperties(combined);
       setLoading(false);
     };
 
@@ -69,6 +76,7 @@ function PropertiesResultsContent() {
   // Synchronize state with URL params when searchParams change
   useEffect(() => {
     setSearchQuery(searchParams.get('search') || '');
+    setCategory(searchParams.get('category') || 'All');
     setPurpose(searchParams.get('purpose') || 'All');
     setCity(searchParams.get('city') || 'All');
     setSuburb(searchParams.get('suburb') || 'All');
@@ -117,18 +125,66 @@ function PropertiesResultsContent() {
         if (!matchesTitle && !matchesCity && !matchesSuburb && !matchesDesc) return false;
       }
 
-      // Purpose
-      const pPurpose = property.priceType || property.price_type;
-      if (purpose !== 'All' && pPurpose?.toLowerCase() !== purpose.toLowerCase()) return false;
+      // Category Filter (Homes, Stays, Business, Lands, Events & Special Places)
+      if (category !== 'All') {
+        const c = category.toLowerCase();
+        const pCat = (property.category || '').toLowerCase();
+        const pType = (property.type || '').toLowerCase();
+        const pPurpose = (property.priceType || property.price_type || '').toLowerCase();
 
-      // City
+        if (c.includes('home')) {
+          if (!pCat.includes('home') && !pCat.includes('residential') && !['house', 'apartment', 'villa', 'townhouse'].includes(pType)) return false;
+        } else if (c.includes('stay') || c.includes('lodge') || c.includes('hotel')) {
+          if (!pCat.includes('stay') && !pCat.includes('hospitality') && !['lodge', 'hotel', 'guest house'].includes(pType)) return false;
+        } else if (c.includes('business') || c.includes('commercial')) {
+          if (!pCat.includes('business') && !pCat.includes('commercial') && pPurpose !== 'commercial' && !['office', 'shop', 'warehouse', 'commercial', 'retail'].includes(pType)) return false;
+        } else if (c.includes('land')) {
+          if (!pCat.includes('land') && pType !== 'land') return false;
+        } else if (c.includes('event') || c.includes('venue')) {
+          if (!pCat.includes('event') && pType !== 'venue') return false;
+        } else {
+          if (pCat !== c && pType !== c) return false;
+        }
+      }
+
+      // Purpose Filter
+      const pPurpose = (property.priceType || property.price_type || '').toLowerCase();
+      if (purpose !== 'All') {
+        const purp = purpose.toLowerCase();
+        if (purp === 'commercial') {
+          const pCat = (property.category || '').toLowerCase();
+          const pType = (property.type || '').toLowerCase();
+          if (pPurpose !== 'commercial' && pCat !== 'business' && pCat !== 'commercial' && !['office', 'shop', 'warehouse', 'commercial', 'retail'].includes(pType)) {
+            return false;
+          }
+        } else if (pPurpose !== purp) {
+          return false;
+        }
+      }
+
+      // City Filter
       if (city !== 'All' && property.city !== city) return false;
 
-      // Suburb
+      // Suburb Filter
       if (suburb !== 'All' && property.suburb !== suburb) return false;
 
-      // Type
-      if (type !== 'All' && property.type !== type) return false;
+      // Type Filter
+      if (type !== 'All') {
+        const t = type.toLowerCase();
+        const pType = (property.type || '').toLowerCase();
+        const pCat = (property.category || '').toLowerCase();
+        if (t === 'land' || t === 'lands') {
+          if (pType !== 'land' && !pCat.includes('land')) return false;
+        } else if (t === 'venue' || t === 'events') {
+          if (pType !== 'venue' && !pCat.includes('event')) return false;
+        } else if (t === 'lodge' || t === 'stays') {
+          if (!['lodge', 'hotel', 'guest house'].includes(pType) && !pCat.includes('stay')) return false;
+        } else if (t === 'house' || t === 'homes') {
+          if (!['house', 'villa', 'townhouse'].includes(pType) && !pCat.includes('home')) return false;
+        } else if (pType !== t) {
+          return false;
+        }
+      }
 
       // Bedrooms
       if (bedrooms !== 'Any') {
@@ -160,12 +216,13 @@ function PropertiesResultsContent() {
     }
 
     return result;
-  }, [allProperties, searchQuery, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities, sortBy]);
+  }, [allProperties, searchQuery, category, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities, sortBy]);
 
   // Active filters list for FilterSummary component
   const activeFilters = useMemo(() => {
     const items: { label: string; onRemove: () => void }[] = [];
     if (searchQuery) items.push({ label: `"${searchQuery}"`, onRemove: () => setSearchQuery('') });
+    if (category !== 'All') items.push({ label: `Category: ${category}`, onRemove: () => setCategory('All') });
     if (purpose !== 'All') items.push({ label: purpose === 'rent' ? 'For Rent' : purpose === 'sale' ? 'For Sale' : purpose, onRemove: () => setPurpose('All') });
     if (city !== 'All') items.push({ label: city, onRemove: () => setCity('All') });
     if (suburb !== 'All') items.push({ label: suburb, onRemove: () => setSuburb('All') });
@@ -180,10 +237,11 @@ function PropertiesResultsContent() {
       });
     });
     return items;
-  }, [searchQuery, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities]);
+  }, [searchQuery, category, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities]);
 
   const handleClearAll = () => {
     setSearchQuery('');
+    setCategory('All');
     setPurpose('All');
     setCity('All');
     setSuburb('All');
