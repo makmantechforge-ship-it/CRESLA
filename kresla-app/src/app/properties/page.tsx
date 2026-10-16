@@ -37,10 +37,12 @@ function PropertiesResultsContent() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [category, setCategory] = useState(searchParams.get('category') || 'All');
   const [purpose, setPurpose] = useState(searchParams.get('purpose') || 'All');
+  const [occupant, setOccupant] = useState(searchParams.get('occupant') || '');
   const [city, setCity] = useState(searchParams.get('city') || 'All');
   const [suburb, setSuburb] = useState(searchParams.get('suburb') || 'All');
   const [type, setType] = useState(searchParams.get('type') || 'All');
   const [bedrooms, setBedrooms] = useState(searchParams.get('bedrooms') || 'Any');
+  const [minSize, setMinSize] = useState(searchParams.get('minSize') || '');
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
@@ -78,10 +80,12 @@ function PropertiesResultsContent() {
     setSearchQuery(searchParams.get('search') || '');
     setCategory(searchParams.get('category') || 'All');
     setPurpose(searchParams.get('purpose') || 'All');
+    setOccupant(searchParams.get('occupant') || '');
     setCity(searchParams.get('city') || 'All');
     setSuburb(searchParams.get('suburb') || 'All');
     setType(searchParams.get('type') || 'All');
     setBedrooms(searchParams.get('bedrooms') || 'Any');
+    setMinSize(searchParams.get('minSize') || '');
     setMinPrice(searchParams.get('minPrice') || '');
     setMaxPrice(searchParams.get('maxPrice') || '');
     setSelectedAmenities(
@@ -187,9 +191,55 @@ function PropertiesResultsContent() {
       }
 
       // Bedrooms
-      if (bedrooms !== 'Any') {
+      if (bedrooms !== 'Any' && bedrooms !== '') {
         const bedsInt = parseInt(bedrooms);
-        if (property.bedrooms < bedsInt) return false;
+        if (!isNaN(bedsInt) && (property.bedrooms || 0) < bedsInt) return false;
+      }
+
+      // Min Size (Optional)
+      if (minSize && !isNaN(parseFloat(minSize))) {
+        const targetSize = parseFloat(minSize);
+        if ((property.size || 0) < targetSize) return false;
+      }
+
+      // Occupant / Audience Filtering
+      if (occupant) {
+        const occ = occupant.toLowerCase();
+        const pTitle = (property.title || '').toLowerCase();
+        const pDesc = (property.description || '').toLowerCase();
+        const pCat = (property.category || '').toLowerCase();
+        const pType = (property.type || '').toLowerCase();
+        const beds = property.bedrooms || 0;
+
+        if (occ === 'student') {
+          // Students looking for budget rooms, boarding, 1-bed, or flats
+          const isStudentFriendly = 
+            beds <= 2 ||
+            pTitle.includes('student') || 
+            pDesc.includes('student') || 
+            pTitle.includes('room') || 
+            pDesc.includes('boarding') ||
+            pType.includes('apartment') ||
+            pType.includes('flat');
+          if (!isStudentFriendly) return false;
+        } else if (occ === 'individual') {
+          // Individuals looking for 1-bed, 2-bed, cottages, studios, apartments
+          const isIndividual = 
+            beds <= 2 || 
+            pType.includes('apartment') || 
+            pTitle.includes('cottage') || 
+            pDesc.includes('cottage') ||
+            pTitle.includes('studio');
+          if (!isIndividual) return false;
+        } else if (occ === 'family') {
+          // Families looking for 2+ bed houses, spacious homes, yards
+          const isFamily = 
+            beds >= 2 || 
+            pType.includes('house') || 
+            pType.includes('villa') || 
+            pCat.includes('residential');
+          if (!isFamily) return false;
+        }
       }
 
       // Min / Max Price
@@ -216,7 +266,7 @@ function PropertiesResultsContent() {
     }
 
     return result;
-  }, [allProperties, searchQuery, category, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities, sortBy]);
+  }, [allProperties, searchQuery, category, purpose, occupant, city, suburb, type, bedrooms, minSize, minPrice, maxPrice, selectedAmenities, sortBy]);
 
   // Active filters list for FilterSummary component
   const activeFilters = useMemo(() => {
@@ -224,12 +274,14 @@ function PropertiesResultsContent() {
     if (searchQuery) items.push({ label: `"${searchQuery}"`, onRemove: () => setSearchQuery('') });
     if (category !== 'All') items.push({ label: `Category: ${category}`, onRemove: () => setCategory('All') });
     if (purpose !== 'All') items.push({ label: purpose === 'rent' ? 'For Rent' : purpose === 'sale' ? 'For Sale' : purpose, onRemove: () => setPurpose('All') });
+    if (occupant) items.push({ label: `For: ${occupant.charAt(0).toUpperCase() + occupant.slice(1)}`, onRemove: () => setOccupant('') });
     if (city !== 'All') items.push({ label: city, onRemove: () => setCity('All') });
     if (suburb !== 'All') items.push({ label: suburb, onRemove: () => setSuburb('All') });
     if (type !== 'All') items.push({ label: type, onRemove: () => setType('All') });
-    if (bedrooms !== 'Any') items.push({ label: `${bedrooms}+ beds`, onRemove: () => setBedrooms('Any') });
+    if (bedrooms !== 'Any' && bedrooms !== '') items.push({ label: `${bedrooms}+ beds`, onRemove: () => setBedrooms('Any') });
+    if (minSize) items.push({ label: `Min ${minSize} m²`, onRemove: () => setMinSize('') });
     if (minPrice) items.push({ label: `Min $${minPrice}`, onRemove: () => setMinPrice('') });
-    if (maxPrice) items.push({ label: `Max $${maxPrice}`, onRemove: () => setMaxPrice('') });
+    if (maxPrice) items.push({ label: `Up to $${maxPrice}`, onRemove: () => setMaxPrice('') });
     selectedAmenities.forEach((a) => {
       items.push({
         label: a,
@@ -237,16 +289,18 @@ function PropertiesResultsContent() {
       });
     });
     return items;
-  }, [searchQuery, category, purpose, city, suburb, type, bedrooms, minPrice, maxPrice, selectedAmenities]);
+  }, [searchQuery, category, purpose, occupant, city, suburb, type, bedrooms, minSize, minPrice, maxPrice, selectedAmenities]);
 
   const handleClearAll = () => {
     setSearchQuery('');
     setCategory('All');
     setPurpose('All');
+    setOccupant('');
     setCity('All');
     setSuburb('All');
     setType('All');
     setBedrooms('Any');
+    setMinSize('');
     setMinPrice('');
     setMaxPrice('');
     setSelectedAmenities([]);
