@@ -1,28 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
-  Search, MapPin, Home, BedDouble, Briefcase, 
-  Trees, Calendar, ChevronDown, SlidersHorizontal, 
-  ArrowRight, Compass, Plus, DollarSign
+  Search, SlidersHorizontal, ArrowRight, Compass, Plus, Briefcase,
+  Home, BedDouble, Trees, Calendar
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 export default function HomePage() {
   const router = useRouter();
-
-  // Search Widget State
-  const [whereQuery, setWhereQuery] = useState('');
-  const [typeQuery, setTypeQuery] = useState('');
-  const [budgetQuery, setBudgetQuery] = useState('');
-
-  // Dropdown visibility states
-  const [whereOpen, setWhereOpen] = useState(false);
-  const [typeOpen, setTypeOpen] = useState(false);
-  const [budgetOpen, setBudgetOpen] = useState(false);
 
   useEffect(() => {
     // Exchange OAuth code if returned to home page
@@ -38,41 +27,6 @@ export default function HomePage() {
       }
     }
   }, [router]);
-
-  const handleSearch = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const params = new URLSearchParams();
-    if (whereQuery) params.set('city', whereQuery);
-    if (typeQuery) {
-      if (typeQuery === 'Homes') params.set('type', 'House');
-      else if (typeQuery === 'Stays') params.set('type', 'Lodge');
-      else if (typeQuery === 'Business') params.set('purpose', 'commercial');
-      else if (typeQuery === 'Lands') params.set('type', 'Land');
-      else if (typeQuery === 'Events & Special Places') params.set('type', 'Venue');
-      else params.set('type', typeQuery);
-    }
-    if (budgetQuery) {
-      if (budgetQuery.includes('300')) params.set('maxPrice', '300');
-      else if (budgetQuery.includes('800')) params.set('maxPrice', '800');
-      else if (budgetQuery.includes('1500')) params.set('maxPrice', '1500');
-      else if (budgetQuery.includes('5000')) params.set('maxPrice', '5000');
-    }
-    router.push(`/properties?${params.toString()}`);
-  };
-
-  const cities = ['Harare', 'Bulawayo', 'Mutare', 'Gweru', 'Masvingo', 'Victoria Falls'];
-  const propertyTypes = ['Homes', 'Stays', 'Business', 'Lands', 'Events & Special Places'];
-  const budgetRanges = [
-    'Any Budget',
-    'Under $300 / mo',
-    '$300 - $800 / mo',
-    '$800 - $2,000 / mo',
-    '$2,000 - $5,000 / mo',
-    '$5,000+ / mo',
-    'Under $50,000 (Buy)',
-    '$50,000 - $150,000 (Buy)',
-    '$150,000+ (Buy)'
-  ];
 
   return (
     <main className="min-h-screen bg-white pt-16 font-sans antialiased text-slate-900">
@@ -115,13 +69,6 @@ export default function HomePage() {
           {/* Desktop Floating Quick Links (Top Right of Hero) */}
           <div className="hidden lg:flex flex-col items-end gap-3.5 pt-2">
             <Link
-              href="/search"
-              className="flex items-center gap-2 text-white hover:text-blue-200 transition-colors text-sm font-semibold group bg-black/25 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-sm"
-            >
-              <Search className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
-              <span>Advanced Search</span>
-            </Link>
-            <Link
               href="/properties"
               className="flex items-center gap-2 text-white hover:text-blue-200 transition-colors text-sm font-semibold group bg-black/25 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-sm"
             >
@@ -139,261 +86,36 @@ export default function HomePage() {
 
         </div>
 
-        {/* Bottom Floating Search Widget Card (Desktop & Mobile) */}
-        <div className="relative z-20 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12 mt-12 sm:mt-16">
-          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-3 sm:p-4 border border-slate-100/80">
-            
-            {/* Desktop / Tablet Grid: 3 Selectors + Search Button */}
-            <div className="hidden md:grid md:grid-cols-12 items-center gap-2 sm:gap-4">
-              
-              {/* Field 1: Where are you looking? */}
-              <div className="col-span-4 relative">
-                <button
-                  type="button"
-                  onClick={() => { setWhereOpen(!whereOpen); setTypeOpen(false); setBudgetOpen(false); }}
-                  className="w-full flex items-center justify-between p-2.5 sm:p-3 rounded-2xl hover:bg-slate-50 transition-colors text-left group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0B3B95] flex items-center justify-center shrink-0">
-                      <MapPin className="w-4 h-4 text-[#0B3B95]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 leading-tight">Where are you looking?</div>
-                      <div className="text-xs text-slate-400 font-medium truncate mt-0.5">
-                        {whereQuery || 'e.g. Harare, Bulawayo...'}
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ml-2 ${whereOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Where Dropdown */}
-                {whereOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
-                    <button
-                      onClick={() => { setWhereQuery(''); setWhereOpen(false); }}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#0B3B95]"
-                    >
-                      All Locations (Zimbabwe)
-                    </button>
-                    {cities.map((city) => (
-                      <button
-                        key={city}
-                        onClick={() => { setWhereQuery(city); setWhereOpen(false); }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#0B3B95]"
-                      >
-                        {city}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="col-span-1 hidden md:flex justify-center">
-                <div className="h-8 w-px bg-slate-200" />
-              </div>
-
-              {/* Field 2: What are you looking for? */}
-              <div className="col-span-3 relative">
-                <button
-                  type="button"
-                  onClick={() => { setTypeOpen(!typeOpen); setWhereOpen(false); setBudgetOpen(false); }}
-                  className="w-full flex items-center justify-between p-2.5 sm:p-3 rounded-2xl hover:bg-slate-50 transition-colors text-left group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0B3B95] flex items-center justify-center shrink-0">
-                      <Home className="w-4 h-4 text-[#0B3B95]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 leading-tight">What are you looking for?</div>
-                      <div className="text-xs text-slate-400 font-medium truncate mt-0.5">
-                        {typeQuery || 'Select property type'}
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ml-2 ${typeOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Type Dropdown */}
-                {typeOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
-                    <button
-                      onClick={() => { setTypeQuery(''); setTypeOpen(false); }}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#0B3B95]"
-                    >
-                      All Types
-                    </button>
-                    {propertyTypes.map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => { setTypeQuery(t); setTypeOpen(false); }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#0B3B95]"
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="col-span-1 hidden md:flex justify-center">
-                <div className="h-8 w-px bg-slate-200" />
-              </div>
-
-              {/* Field 3: Budget */}
-              <div className="col-span-3 relative">
-                <button
-                  type="button"
-                  onClick={() => { setBudgetOpen(!budgetOpen); setWhereOpen(false); setTypeOpen(false); }}
-                  className="w-full flex items-center justify-between p-2.5 sm:p-3 rounded-2xl hover:bg-slate-50 transition-colors text-left group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0B3B95] flex items-center justify-center shrink-0">
-                      <DollarSign className="w-4 h-4 text-[#0B3B95]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 leading-tight">Budget</div>
-                      <div className="text-xs text-slate-400 font-medium truncate mt-0.5">
-                        {budgetQuery || 'e.g. $100 - $5000'}
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ml-2 ${budgetOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Budget Dropdown */}
-                {budgetOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
-                    {budgetRanges.map((b) => (
-                      <button
-                        key={b}
-                        onClick={() => { setBudgetQuery(b === 'Any Budget' ? '' : b); setBudgetOpen(false); }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#0B3B95]"
-                      >
-                        {b}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Search Button & Advanced Search */}
-              <div className="col-span-12 lg:col-span-12 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 mt-2">
-                <Link
-                  href="/search"
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#0B3B95] transition-colors"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Advanced Search</span>
-                  <span className="text-slate-400 font-normal">›</span>
-                </Link>
-
-                <button
-                  onClick={handleSearch}
-                  className="w-full sm:w-auto px-8 py-3 bg-[#0B3B95] hover:bg-blue-800 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Search className="w-4 h-4" />
-                  <span>Search</span>
-                </button>
-              </div>
-
-            </div>
-
-            {/* Mobile Layout (Matching Mobile Mockup Screenshot 1) */}
-            <div className="md:hidden space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Mobile Where? */}
-                <div className="relative border border-slate-200 rounded-xl p-2.5">
-                  <button
-                    type="button"
-                    onClick={() => { setWhereOpen(!whereOpen); setTypeOpen(false); }}
-                    className="w-full flex items-center justify-between text-left"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <MapPin className="w-4 h-4 text-[#0B3B95] shrink-0" />
-                      <div>
-                        <div className="text-[11px] font-bold text-slate-900 leading-none">Where?</div>
-                        <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                          {whereQuery || 'e.g. Harare, Bulawayo...'}
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-                  {whereOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50">
-                      {cities.map((city) => (
-                        <button
-                          key={city}
-                          onClick={() => { setWhereQuery(city); setWhereOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
-                        >
-                          {city}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+        {/* Minimalistic Clean Blue Advanced Search Bar */}
+        <div className="relative z-20 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14 mt-12 sm:mt-16">
+          <Link
+            href="/search"
+            className="group block w-full bg-[#0B3B95]/95 hover:bg-[#0B3B95] backdrop-blur-md text-white rounded-full p-2.5 sm:p-3 sm:pl-7 shadow-2xl border border-white/20 transition-all duration-300 hover:scale-[1.01] hover:shadow-blue-900/40"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0 text-white group-hover:bg-white/25 transition-colors">
+                  <SlidersHorizontal className="w-5 h-5" />
                 </div>
-
-                {/* Mobile What are you looking for? */}
-                <div className="relative border border-slate-200 rounded-xl p-2.5">
-                  <button
-                    type="button"
-                    onClick={() => { setTypeOpen(!typeOpen); setWhereOpen(false); }}
-                    className="w-full flex items-center justify-between text-left"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Home className="w-4 h-4 text-[#0B3B95] shrink-0" />
-                      <div>
-                        <div className="text-[11px] font-bold text-slate-900 leading-none">What are you looking for?</div>
-                        <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                          {typeQuery || 'Select property type'}
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-                  {typeOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50">
-                      {propertyTypes.map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => { setTypeQuery(t); setTypeOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50"
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="min-w-0">
+                  <div className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                    <span>Advanced Search</span>
+                    <span className="hidden sm:inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-white/20 text-blue-100">
+                      Smart Filter
+                    </span>
+                  </div>
+                  <div className="text-xs text-blue-100/80 font-medium truncate hidden sm:block">
+                    Filter by city, purpose (rent/buy), budget, bedrooms, solar & boreholes...
+                  </div>
                 </div>
               </div>
 
-              {/* Mobile Search Button */}
-              <button
-                onClick={handleSearch}
-                className="w-full py-3 bg-[#0B3B95] hover:bg-blue-800 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-              >
+              <div className="flex items-center gap-2 bg-white text-[#0B3B95] px-5 sm:px-6 py-2.5 sm:py-3 rounded-full font-bold text-sm shrink-0 shadow-md group-hover:bg-blue-50 transition-colors">
                 <Search className="w-4 h-4" />
-                <span>Search</span>
-              </button>
-
-              {/* Mobile Advanced Search Link Bar */}
-              <Link
-                href="/search"
-                className="w-full py-2.5 px-3 border border-slate-200 rounded-xl flex items-center justify-between text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-2 text-[#0B3B95]">
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span>Advanced Search</span>
-                </div>
-                <span className="text-slate-400 font-bold">›</span>
-              </Link>
+                <span className="hidden xs:inline">Search</span>
+              </div>
             </div>
-
-          </div>
+          </Link>
         </div>
 
       </section>
