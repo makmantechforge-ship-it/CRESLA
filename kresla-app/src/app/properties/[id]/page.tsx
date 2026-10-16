@@ -402,8 +402,8 @@ export default function PropertyDetailPage() {
 
       </div>
 
-      {/* MOBILE STICKY BOTTOM ACTION BAR */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-3.5 px-6 z-50 flex items-center justify-between shadow-xl">
+      {/* MOBILE STICKY BOTTOM ACTION BAR (Positioned above bottom nav) */}
+      <div className="lg:hidden fixed bottom-16 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-3 px-6 z-40 flex items-center justify-between shadow-xl">
         <div>
           <span className="text-xl font-extrabold text-primary">{formatPrice(property.price)}</span>
           {priceType === 'rent' && <span className="text-xs text-slate-500 ml-1">/mo</span>}
