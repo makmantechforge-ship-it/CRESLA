@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, 
   Building2, 
   MapPin, 
+  Map,
   ArrowRight, 
   ArrowLeft, 
   Check, 
@@ -23,12 +25,27 @@ import {
   Search,
   DollarSign,
   Maximize2,
-  BedDouble
+  BedDouble,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { properties as mockProperties } from '@/data/properties';
 import { getProperties } from '@/utils/supabase/queries';
 import { ProgressDots } from '@/components/ui/ProgressDots';
 import { Button } from '@/components/ui/Button';
+
+// Dynamically import LocationPickerMap to avoid SSR issues with Leaflet
+const LocationPickerMap = dynamic(
+  () => import('@/components/map/LocationPickerMap'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[300px] flex items-center justify-center bg-slate-100 dark:bg-slate-900 rounded-2xl">
+        <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    ),
+  }
+);
 
 function SearchWizardContent() {
   const router = useRouter();
@@ -56,6 +73,9 @@ function SearchWizardContent() {
   
   // Step 6: Amenities Selection
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+  // Optional map visibility for Step 2 (Location)
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     // Load platform properties for dynamic options
@@ -279,7 +299,7 @@ function SearchWizardContent() {
                     Where are you looking?
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                    Type a city or suburb, or pick a popular location to continue.
+                    Type a city or suburb, pick a popular location, or use the map to continue.
                   </p>
                 </div>
 
@@ -319,6 +339,65 @@ function SearchWizardContent() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* OPTIONAL LIVE MAP TOGGLE */}
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowMap((prev) => !prev)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-sm font-bold transition-all cursor-pointer ${
+                      showMap
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 hover:border-blue-300 hover:bg-blue-50/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                        showMap ? 'bg-primary text-white' : 'bg-white dark:bg-slate-700 text-[#0B3B95] shadow-sm'
+                      }`}>
+                        <Map className="w-4 h-4" />
+                      </div>
+                      <div className="text-left">
+                        <span className="block">{showMap ? 'Hide Map' : '📍 Pick on Map'}</span>
+                        <span className="block text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                          {showMap ? 'Close the interactive map' : 'Browse Zimbabwe on a live interactive map'}
+                        </span>
+                      </div>
+                    </div>
+                    {showMap ? (
+                      <ChevronUp className="w-5 h-5 text-primary" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                    )}
+                  </button>
+
+                  {/* COLLAPSIBLE MAP PANEL */}
+                  <AnimatePresence>
+                    {showMap && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm" style={{ height: '320px' }}>
+                          <LocationPickerMap
+                            selectedLocation={location}
+                            onSelectLocation={(cityName) => {
+                              setLocation(cityName);
+                              // Auto-advance to Step 3 after selecting on map
+                              setTimeout(() => setCurrentStep(3), 350);
+                            }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center font-medium">
+                          Tap a city marker to select it as your location
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {location.trim() && (
