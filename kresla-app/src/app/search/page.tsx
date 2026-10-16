@@ -203,7 +203,7 @@ function SearchWizardContent() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-20 pb-32 font-sans flex flex-col justify-between">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-20 pb-36 font-sans flex flex-col justify-between">
       <div className="max-w-2xl mx-auto px-4 w-full pt-6">
         
         {/* TOP WIZARD HEADER & SEARCH ANYTIME ACTION */}
@@ -546,6 +546,26 @@ function SearchWizardContent() {
                     Leave blank if you don&apos;t have a specific size requirement.
                   </p>
                 </div>
+
+                {/* IN-CARD NAVIGATION */}
+                <div className="pt-4 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(5)}
+                    className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md hover:bg-blue-800 transition-colors ml-auto cursor-pointer"
+                  >
+                    <span>Continue to Price</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -609,6 +629,26 @@ function SearchWizardContent() {
                       ))}
                     </div>
                   </div>
+
+                  {/* IN-CARD NAVIGATION */}
+                  <div className="pt-4 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(4)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(6)}
+                      className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md hover:bg-blue-800 transition-colors ml-auto cursor-pointer"
+                    >
+                      <span>Continue to Amenities</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -648,6 +688,26 @@ function SearchWizardContent() {
                     );
                   })}
                 </div>
+
+                {/* IN-CARD FINISH ACTION */}
+                <div className="pt-5 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(5)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteSearch}
+                    className="px-6 py-3 bg-[#0B3B95] text-white text-sm font-bold rounded-xl flex items-center gap-2 shadow-lg hover:bg-blue-800 hover:scale-[1.02] active:scale-95 transition-all ml-auto cursor-pointer"
+                  >
+                    <span>See Matches</span>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -656,7 +716,7 @@ function SearchWizardContent() {
       </div>
 
       {/* BOTTOM CONTROL FOOTER WITH NEXT / PREV / SEARCH ANYTIME */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-3.5 px-4 sm:px-6 z-40 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-3 px-4 sm:px-6 z-50 shadow-lg pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
           
           {/* Back button */}
@@ -666,7 +726,7 @@ function SearchWizardContent() {
                 variant="secondary" 
                 size="md" 
                 onClick={() => setCurrentStep((prev) => prev - 1)}
-                className="w-full"
+                className="w-full cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" /> Back
               </Button>
@@ -683,7 +743,7 @@ function SearchWizardContent() {
                 variant="primary" 
                 size="md" 
                 onClick={() => setCurrentStep((prev) => prev + 1)}
-                className="w-full flex items-center justify-center"
+                className="w-full flex items-center justify-center cursor-pointer"
               >
                 Next <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
@@ -692,7 +752,7 @@ function SearchWizardContent() {
                 variant="primary" 
                 size="md" 
                 onClick={handleExecuteSearch}
-                className="w-full flex items-center justify-center bg-[#0B3B95] hover:bg-blue-800 shadow-md font-bold"
+                className="w-full flex items-center justify-center bg-[#0B3B95] hover:bg-blue-800 shadow-md font-bold cursor-pointer"
               >
                 See Matches <Sparkles className="w-4 h-4 ml-1.5" />
               </Button>

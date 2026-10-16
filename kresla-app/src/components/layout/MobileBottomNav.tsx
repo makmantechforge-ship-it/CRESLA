@@ -8,6 +8,11 @@ import { Home, Compass, PlusCircle, Heart, MessageSquare } from 'lucide-react';
 export default function MobileBottomNav() {
   const pathname = usePathname();
 
+  // Hide on search wizard page where dedicated wizard bottom controls exist
+  if (pathname === '/search' || pathname?.startsWith('/search')) {
+    return null;
+  }
+
   const navItems = [
     {
       label: 'Home',
