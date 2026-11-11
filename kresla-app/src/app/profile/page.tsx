@@ -27,7 +27,7 @@ import { createClient } from '@/utils/supabase/client';
 import { getUserProfile, updateUserProfile, DbProfile, getUserFavorites, getProperties } from '@/utils/supabase/queries';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
-
+import { Suspense } from 'react';
 
 const TABS = [
   { id: 'properties', label: 'My Properties', icon: Home },
@@ -36,13 +36,14 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState(tabParam === 'settings' ? 'settings' : 'properties');
   const [loading, setLoading] = useState(true);
+
 
 
   const [userAuth, setUserAuth] = useState<any>(null);
@@ -439,3 +440,16 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
