@@ -18,11 +18,16 @@ import {
   Edit2,
   X,
   Save,
-  LogOut
+  LogOut,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { getUserProfile, updateUserProfile, DbProfile, getUserFavorites, getProperties } from '@/utils/supabase/queries';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from '@/context/ThemeContext';
+
 
 const TABS = [
   { id: 'properties', label: 'My Properties', icon: Home },
@@ -33,9 +38,13 @@ const TABS = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('properties');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const { theme, setTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState(tabParam === 'settings' ? 'settings' : 'properties');
   const [loading, setLoading] = useState(true);
+
+
   const [userAuth, setUserAuth] = useState<any>(null);
   const [profile, setProfile] = useState<DbProfile | null>(null);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -356,8 +365,69 @@ export default function ProfilePage() {
                 
                 {/* Settings Tab */}
                 {activeTab === 'settings' && (
-                  <div className="py-12 text-center text-gray-500">
-                    Settings coming soon.
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">Platform Appearance</h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Choose your interface color scheme. The platform stays consistent with your selection as you navigate.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Light Theme Card */}
+                      <button
+                        type="button"
+                        onClick={() => setTheme('light')}
+                        className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-4 ${
+                          theme === 'light'
+                            ? 'border-primary ring-2 ring-primary/20 bg-primary/5 text-primary'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className={`p-3 rounded-xl ${theme === 'light' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                          <Sun className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm">Light Theme (Default)</h4>
+                            {theme === 'light' && <CheckCircle className="w-4 h-4 text-primary" />}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Clean white and light-slate background across all pages.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Dark Theme Card */}
+                      <button
+                        type="button"
+                        onClick={() => setTheme('dark')}
+                        className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-4 ${
+                          theme === 'dark'
+                            ? 'border-primary ring-2 ring-primary/20 bg-primary/5 text-primary'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className={`p-3 rounded-xl ${theme === 'dark' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                          <Moon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm">Dark Theme</h4>
+                            {theme === 'dark' && <CheckCircle className="w-4 h-4 text-primary" />}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            High-contrast dark mode for evening viewing and OLED screens.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <p className="text-xs text-slate-400">
+                        Active theme: <strong className="text-slate-700 dark:text-slate-200 uppercase">{theme}</strong>. Your choice is saved automatically to your device.
+                      </p>
+                    </div>
                   </div>
                 )}
 
