@@ -32,6 +32,12 @@ export interface Property {
   reviewCount: number;
   verified: boolean;
   featured: boolean;
+  priceNegotiable?: boolean;
+  depositRequired?: boolean;
+  depositAmount?: number;
+  posterRole?: 'owner' | 'landlord' | 'agent';
+  documents?: string[];
+  status?: 'active' | 'draft' | 'rented' | 'sold';
   landlord: {
     id: string;
     name: string;

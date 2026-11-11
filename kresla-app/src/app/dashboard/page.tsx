@@ -84,7 +84,7 @@ export default function DashboardPage() {
         // Fetch user's properties
         const { data: properties } = await supabase
           .from('properties')
-          .select('id, views, title, price, price_type, city, suburb, images, available')
+          .select('id, views, title, price, price_type, city, suburb, images, available, status')
           .eq('landlord_id', user.id);
 
         setUserPropertiesList(properties || []);
@@ -477,35 +477,90 @@ export default function DashboardPage() {
                   {userPropertiesList.map((prop) => (
                     <div
                       key={prop.id}
-                      className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-4 items-center justify-between hover:shadow-md transition-shadow bg-slate-50/50 dark:bg-slate-800/50"
+                      className={`p-4 rounded-2xl border flex flex-col gap-3 hover:shadow-md transition-shadow ${
+                        prop.available === false 
+                          ? 'border-slate-300 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800/30 opacity-80'
+                          : prop.status === 'draft'
+                            ? 'border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20'
+                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50'
+                      }`}
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <img
-                          src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=300'}
-                          alt={prop.title}
-                          className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200"
-                        />
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{prop.title}</h4>
-                          <p className="text-xs text-slate-500">{prop.suburb ? `${prop.suburb}, ` : ''}{prop.city}</p>
-                          <p className="text-xs font-bold text-primary mt-1">${prop.price} {prop.price_type === 'rent' ? '/mo' : ''}</p>
+                      <div className="flex gap-4 items-center justify-between">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="relative shrink-0">
+                            <img
+                              src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=300'}
+                              alt={prop.title}
+                              className="w-16 h-16 rounded-xl object-cover border border-slate-200"
+                            />
+                            {prop.available === false && (
+                              <div className="absolute inset-0 bg-slate-900/40 rounded-xl flex items-center justify-center">
+                                <span className="text-white text-[9px] font-bold">OFF</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{prop.title}</h4>
+                              {prop.status === 'draft' && (
+                                <span className="text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded shrink-0">DRAFT</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500">{prop.suburb ? `${prop.suburb}, ` : ''}{prop.city}</p>
+                            <p className="text-xs font-bold text-primary mt-0.5">${prop.price} {prop.price_type === 'rent' ? '/mo' : ''}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link
+                            href={`/properties/${prop.id}`}
+                            className="p-2 text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors"
+                            title="View Listing"
+                          >
+                            <ExternalLink size={16} />
+                          </Link>
+                          <Link
+                            href={`/properties/${prop.id}/edit`}
+                            className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/50 transition-colors flex items-center gap-1.5 shadow-xs"
+                          >
+                            <Edit3 size={13} /> Edit
+                          </Link>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                          href={`/properties/${prop.id}`}
-                          className="p-2 text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors"
-                          title="View Listing"
-                        >
-                          <ExternalLink size={16} />
-                        </Link>
-                        <Link
-                          href={`/properties/${prop.id}/edit`}
-                          className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/50 transition-colors flex items-center gap-1.5 shadow-xs"
-                        >
-                          <Edit3 size={13} /> Edit
-                        </Link>
+                      {/* Availability Toggle Row */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${prop.available !== false ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                            {prop.available !== false 
+                              ? 'Available' 
+                              : (prop.price_type === 'rent' ? 'Marked as Rented' : 'Marked as Sold')}
+                          </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer" title={prop.available !== false ? 'Turn off availability' : 'Turn on availability'}>
+                          <input
+                            type="checkbox"
+                            checked={prop.available !== false}
+                            onChange={async () => {
+                              const newAvailable = prop.available === false;
+                              const newStatus = newAvailable ? 'active' : (prop.price_type === 'rent' ? 'rented' : 'sold');
+                              try {
+                                await supabase
+                                  .from('properties')
+                                  .update({ available: newAvailable, status: newStatus, updated_at: new Date().toISOString() })
+                                  .eq('id', prop.id);
+                                setUserPropertiesList(prev =>
+                                  prev.map(p => p.id === prop.id ? { ...p, available: newAvailable, status: newStatus } : p)
+                                );
+                              } catch (err) {
+                                console.error('Error toggling availability:', err);
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
                       </div>
                     </div>
                   ))}

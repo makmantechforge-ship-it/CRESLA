@@ -36,6 +36,12 @@ export type DbProperty = {
   featured: boolean;
   landlord_id: string;
   created_at: string;
+  price_negotiable?: boolean;
+  deposit_required?: boolean;
+  deposit_amount?: number;
+  poster_role?: 'owner' | 'landlord' | 'agent';
+  documents?: string[];
+  status?: 'active' | 'draft' | 'rented' | 'sold';
   profiles?: {
     id: string;
     full_name: string;
@@ -281,6 +287,28 @@ export async function deleteProperty(id: string): Promise<boolean> {
   }
 
   return true;
+}
+
+export async function togglePropertyAvailability(id: string, available: boolean, status?: 'active' | 'rented' | 'sold'): Promise<DbProperty> {
+  const supabase = createClient();
+  const updates: any = { available, updated_at: new Date().toISOString() };
+  if (status) {
+    updates.status = status;
+  } else {
+    updates.status = available ? 'active' : 'rented';
+  }
+  const { data, error } = await supabase
+    .from('properties')
+    .update(updates)
+    .eq('id', id)
+    .select('*, profiles(id, full_name, avatar_url, verified, rating, properties_count, response_time)')
+    .single();
+
+  if (error) {
+    console.error('Error toggling property availability:', error);
+    throw error;
+  }
+  return data as DbProperty;
 }
 
 export async function getUserProperties(userId: string): Promise<DbProperty[]> {

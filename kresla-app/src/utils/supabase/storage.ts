@@ -62,3 +62,33 @@ export async function deletePropertyImage(imagePathOrUrl: string): Promise<boole
     return false;
   }
 }
+
+/**
+ * Uploads an ownership/seller authorization or real estate document.
+ * Returns the public URL of the uploaded document.
+ */
+export async function uploadPropertyDocument(file: File, userId: string): Promise<string> {
+  const supabase = createClient();
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const fileName = `docs_${Date.now()}_${sanitizedName}`;
+  const filePath = `${userId}/documents/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(PROPERTY_IMAGES_BUCKET)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Error uploading document to Supabase Storage:', error);
+    throw new Error(error.message || 'Failed to upload document');
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(PROPERTY_IMAGES_BUCKET)
+    .getPublicUrl(data.path);
+
+  return publicUrlData.publicUrl;
+}
+

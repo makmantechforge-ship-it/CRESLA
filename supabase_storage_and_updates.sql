@@ -57,3 +57,13 @@ create policy "Owners can delete their own properties"
 -- 3. Messages Realtime configuration
 -- Enable Realtime on the messages table so chats update live
 alter publication supabase_realtime add table public.messages;
+
+-- 4. Phase 1 Enhancements (House Post Flow: Rent / Sell, Deposits, Ownership Docs, Drafts)
+alter table public.properties 
+  add column if not exists price_negotiable boolean default false,
+  add column if not exists deposit_required boolean default false,
+  add column if not exists deposit_amount numeric default 0,
+  add column if not exists poster_role text default 'landlord' check (poster_role in ('owner', 'landlord', 'agent')),
+  add column if not exists documents text[] default '{}',
+  add column if not exists status text default 'active' check (status in ('active', 'draft', 'rented', 'sold'));
+
