@@ -512,19 +512,30 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <Link
-                            href={`/properties/${prop.id}`}
-                            className="p-2 text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors"
-                            title="View Listing"
-                          >
-                            <ExternalLink size={16} />
-                          </Link>
-                          <Link
-                            href={`/properties/${prop.id}/edit`}
-                            className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/50 transition-colors flex items-center gap-1.5 shadow-xs"
-                          >
-                            <Edit3 size={13} /> Edit
-                          </Link>
+                          {prop.status === 'draft' ? (
+                            <Link
+                              href={`/upload?draftId=${prop.id}`}
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+                            >
+                              <Edit3 size={13} /> Resume & Finish
+                            </Link>
+                          ) : (
+                            <>
+                              <Link
+                                href={`/properties/${prop.id}`}
+                                className="p-2 text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors"
+                                title="View Listing"
+                              >
+                                <ExternalLink size={16} />
+                              </Link>
+                              <Link
+                                href={`/properties/${prop.id}/edit`}
+                                className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/50 transition-colors flex items-center gap-1.5 shadow-xs"
+                              >
+                                <Edit3 size={13} /> Edit
+                              </Link>
+                            </>
+                          )}
                         </div>
                       </div>
 
